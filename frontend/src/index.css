@@ -1,0 +1,121 @@
+@import './styles/globals.css';
+
+/* Additional component styles */
+.prose {
+  max-width: none;
+}
+
+.prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+  @apply text-gray-900 dark:text-white;
+}
+
+.prose p {
+  @apply text-gray-700 dark:text-gray-300;
+}
+
+.prose code {
+  @apply bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-sm;
+}
+
+.prose pre {
+  @apply bg-gray-100 dark:bg-gray-800 p-4 rounded-lg overflow-x-auto;
+}
+
+.prose blockquote {
+  @apply border-l-4 border-primary-500 pl-4 italic text-gray-600 dark:text-gray-400;
+}
+
+/* Custom utilities for the workflow */
+.workflow-step {
+  @apply relative;
+}
+
+.workflow-step::after {
+  content: '';
+  @apply absolute top-6 left-6 w-px h-full bg-gray-200 dark:bg-gray-700 -z-10;
+}
+
+.workflow-step:last-child::after {
+  display: none;
+}
+
+/* Loading skeleton animations */
+.skeleton-pulse {
+  animation: skeleton-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: .5;
+  }
+}
+
+/* Custom scrollbar for code blocks */
+.code-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+
+.code-scroll::-webkit-scrollbar-track {
+  @apply bg-gray-100 dark:bg-gray-800 rounded;
+}
+
+.code-scroll::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 dark:bg-gray-600 rounded;
+}
+
+/* Toast customization */
+.toast-success {
+  @apply bg-green-500 text-white;
+}
+
+.toast-error {
+  @apply bg-red-500 text-white;
+}
+
+.toast-loading {
+  @apply bg-blue-500 text-white;
+}
+
+/* Responsive image grid */
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+@media (max-width: 640px) {
+  .image-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+}
+
+/* Focus visible improvements */
+.focus-visible {
+  @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800;
+}
+
+/* Drag and drop styles */
+.dropzone-active {
+  @apply border-primary-500 bg-primary-50 dark:bg-primary-900/20;
+}
+
+.dropzone-reject {
+  @apply border-red-500 bg-red-50 dark:bg-red-900/20;
+}
+
+/* Progress bar animations */
+.progress-bar {
+  transition: width 0.3s ease-in-out;
+}
+
+/* Selection styles */
+::selection {
+  @apply bg-primary-500 text-white;
+}
+
+::-moz-selection {
+  @apply bg-primary-500 text-white;
+}

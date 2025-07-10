@@ -21,19 +21,13 @@ class SarvamTTS:
         self.api_key = api_key
         self.base_url = "https://api.sarvam.ai/text-to-speech"
         self.supported_voices = {
-            "meera": "hi-IN",
-            "pavithra": "hi-IN",
-            "maitreyi": "hi-IN", 
-            "arvind": "hi-IN",
-            "amol": "hi-IN",
-            "amartya": "hi-IN",
-            "diya": "hi-IN",
-            "neel": "hi-IN",
-            "misha": "hi-IN",
-            "vian": "hi-IN",
-            "arjun": "hi-IN",
-            "maya": "hi-IN",
-            "kavya": "hi-IN"
+            "anushka": "hi-IN",
+            "abhilash": "hi-IN",
+            "manisha": "hi-IN",
+            "vidya": "hi-IN",
+            "arya": "hi-IN",
+            "karun": "hi-IN",
+            "hitesh": "hi-IN"
         }
         self.supported_sample_rates = [8000, 16000, 22050, 24000]
         self.default_sample_rate = 22050
@@ -49,13 +43,13 @@ class SarvamTTS:
             test_data = {
                 "inputs": ["test"],
                 "target_language_code": "hi-IN",
-                "speaker": "meera",
+                "speaker": "vidya",
                 "pitch": 0,
                 "pace": 1.0,
                 "loudness": 1.5,
                 "speech_sample_rate": self.default_sample_rate,
                 "enable_preprocessing": True,
-                "model": "bulbul:v1"
+                "model": "bulbul:v2"
             }
             
             response = requests.post(self.base_url, headers=headers, json=test_data, timeout=30)
@@ -64,7 +58,7 @@ class SarvamTTS:
             print(f"Connection test failed: {e}")
             return False
     
-    def synthesize_text(self, text: str, voice: str = "meera", sample_rate: int = 22050) -> Optional[bytes]:
+    def synthesize_text(self, text: str, target_language, voice: str = "meera", sample_rate: int = 22050) -> Optional[bytes]:
         """Simplified synthesis method aligned with working Streamlit version"""
         try:
             if sample_rate not in self.supported_sample_rates:
@@ -75,7 +69,8 @@ class SarvamTTS:
                 "Content-Type": "application/json"
             }
             
-            target_language = self.supported_voices.get(voice, "hi-IN")
+            # target_language = self.supported_voices.get(voice, "hi-IN")
+            print(f"Using voice: {voice}, target language: {target_language}, sample rate: {sample_rate}")
             
             data = {
                 "inputs": [text],
@@ -86,7 +81,7 @@ class SarvamTTS:
                 "loudness": 1.5,
                 "speech_sample_rate": sample_rate,
                 "enable_preprocessing": True,
-                "model": "bulbul:v1"
+                "model": "bulbul:v2"
             }
             
             print(f"Making TTS request for {len(text)} characters...")
@@ -151,7 +146,7 @@ class SarvamTTS:
         except Exception as e:
             raise SarvamTTSError(f"Unexpected error: {e}")
     
-    def synthesize_long_text(self, text: str, output_path: str, voice: str = "meera", 
+    def synthesize_long_text(self, text: str, output_path: str, target_language, voice: str = "meera", 
                            max_chunk_length: int = 500, sample_rate: int = 22050) -> bool:
         """Simplified long text synthesis"""
         try:
@@ -170,7 +165,7 @@ class SarvamTTS:
                 
                 # Single attempt per chunk - no complex retry logic
                 try:
-                    audio_bytes = self.synthesize_text(chunk, voice, sample_rate)
+                    audio_bytes = self.synthesize_text(chunk, target_language, voice, sample_rate)
                     if audio_bytes:
                         audio_segments.append(audio_bytes)
                     else:

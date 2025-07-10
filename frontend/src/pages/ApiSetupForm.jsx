@@ -1,42 +1,75 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { FiKey, FiCheck, FiAlertCircle, FiEye, FiEyeOff } from 'react-icons/fi';
+import { FiKey, FiCheck, FiAlertCircle, FiEye, FiEyeOff, FiExternalLink } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import Layout from '../components/common/Layout';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { apiService } from '../services/api';
 import { useWorkflow } from '../contexts/WorkflowContext';
 
-const ApiKeyInput = ({ label, name, value, onChange, required, description, showPassword, onTogglePassword }) => (
-  <div className="space-y-2">
-    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-      {label} {required && <span className="text-red-500">*</span>}
-    </label>
+const ApiKeyInput = ({ label, name, value, onChange, required, description, showPassword, onTogglePassword, status, link }) => (
+  <div className="space-y-3">
+    <div className="flex items-center justify-between">
+      <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+      {status && (
+        <div className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded-full ${
+          status === 'valid' 
+          ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400'
+          : 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+        }`}>
+        {status === 'valid' ? (
+          <FiCheck className="w-3 h-3" />
+          ) : (
+          <FiAlertCircle className="w-3 h-3" />
+          )}
+          {status === 'valid' ? 'Valid' : 'Invalid'}
+        </div>
+        )}
+    </div>
+    
     <div className="relative">
       <input
         type={showPassword ? 'text' : 'password'}
         name={name}
         value={value}
         onChange={onChange}
-        className="w-full px-4 py-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-800 dark:text-white transition-colors duration-200"
+        className="w-full px-3 py-2 border rounded-md bg-white dark:bg-gray-900
+                   border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100
+                   focus:outline-none focus:ring-2 focus:ring-gray-700 pr-12"
         placeholder={`Enter your ${label.toLowerCase()}`}
       />
       <button
         type="button"
         onClick={onTogglePassword}
-        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+        className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 
+                   text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 
+                   rounded transition-colors duration-150"
       >
-        {showPassword ? <FiEyeOff className="w-5 h-5" /> : <FiEye className="w-5 h-5" />}
+        {showPassword ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
       </button>
     </div>
+    <div className="flex flex-row justify-between">
     {description && (
-      <p className="text-sm text-gray-500 dark:text-gray-400">{description}</p>
-    )}
+      <span className="text-sm text-gray-600 dark:text-gray-400">{description}</span>
+      )}
+    <a
+      href={link}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-1 text-sm text-gray-700 dark:text-gray-300 
+                 hover:text-gray-900 dark:hover:text-gray-100 transition-colors duration-150"
+    >
+      Get API Key
+      <FiExternalLink className="w-3 h-3" />
+    </a>
   </div>
-);
+  </div>
+  );
 
 const ApiSetupForm = () => {
-  const { progressToNextStep } = useWorkflow(); // Changed from setStep to progressToNextStep
+  const { progressToNextStep } = useWorkflow();
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState({});
   const [showPasswords, setShowPasswords] = useState({});
@@ -76,10 +109,7 @@ const ApiSetupForm = () => {
       await apiService.setupApiKeys(apiKeys);
       toast.success('API keys configured successfully!');
       await checkApiKeysStatus();
-      
-      // Use progressToNextStep for auto-navigation
       progressToNextStep();
-      
     } catch (error) {
       console.error('API setup error:', error);
       toast.error('Failed to configure API keys');
@@ -88,135 +118,124 @@ const ApiSetupForm = () => {
     }
   };
 
-  const breadcrumbs = [
-    { label: 'API Setup', href: '/api-setup' }
-  ];
-
   const apiKeyConfigs = [
     {
       name: 'gemini_key',
       label: 'Gemini API Key',
-      required: false, // Make optional
-      description: 'Optional: Used for script generation and content analysis.',
-      documentation: "https://docs.google.com/document/d/1wmCBGNVFUOYMatEkvX9G9qudI4viekC2zphED9N1yE0/edit?usp=sharing",
-      status: status.gemini_configured
+      required: false,
+      description: 'Used for script generation and content analysis.',
+      link: 'https://makersuite.google.com/app/apikey'
     },
     {
-      name: 'sarvam_key',
+      name: 'sarvam_key', 
       label: 'Sarvam API Key',
       required: false,
-      description: 'Optional: Used for text-to-speech functionality',
-      documentation: "https://docs.google.com/document/d/1XCiS44Hh2sxNQoWNAJdBuZU5DDxg6EF9szRMw1XTELA/edit?usp=sharing",
-      status: status.sarvam_configured
+      description: 'Optional: Used for Hindi text-to-speech generation.',
+      link: 'https://sarvam.ai'
     },
     {
       name: 'openai_key',
-      label: 'OpenAI API Key',
+      label: 'OpenAI API Key', 
       required: false,
-      description: 'Optional: Used for enhanced content processing',
-      documentation: "",
-      status: status.openai_configured
+      description: 'Optional: Alternative for script generation.',
+      link: 'https://platform.openai.com/api-keys'
     }
   ];
 
   return (
-      <div className="max-w-2xl mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 lg:p-8"
-        >
-          {/* Header */}
-          <div className="text-center mb-8">
-            <div className="mx-auto w-16 h-16 bg-primary-100 dark:bg-primary-900 rounded-full flex items-center justify-center mb-4">
-              <FiKey className="w-8 h-8 text-primary-600 dark:text-primary-400" />
-            </div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-              Configure API Keys
-            </h2>
-            <p className="text-gray-600 dark:text-gray-400">
-              Set up your API keys to get best out of Saral AI
-            </p>
-          </div>
+    <div className="max-w-3xl mx-auto space-y-8">
+      {/* header */}
+      <div>
+        <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">
+          Configure API Keys
+        </h2>
+        <p className="text-gray-600 dark:text-gray-400">
+          Set up your API keys to enable AI-powered features. All keys are optional and stored securely.
+        </p>
+      </div>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {apiKeyConfigs.map((config) => (
-              <motion.div
-                key={config.name}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.1 }}
-                className="relative"
-              >
-                {/* Documentation link */}
-                {config.documentation && (
-                  <a
-                    href={config.documentation}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-block mb-2 text-sm text-primary-600 dark:text-primary-400 hover:underline"
-                  >
-                    {config.label} Documentation
-                  </a>
-                )}
-                <ApiKeyInput
-                  label={config.label}
-                  name={config.name}
-                  value={apiKeys[config.name]}
-                  onChange={handleInputChange}
-                  required={config.required}
-                  description={config.description}
-                  showPassword={showPasswords[config.name]}
-                  onTogglePassword={() => togglePasswordVisibility(config.name)}
-                />
-                {/* Status indicator */}
-                {config.status && (
-                  <div className="absolute top-8 right-12 flex items-center">
-                    <FiCheck className="w-5 h-5 text-green-500" />
-                  </div>
-                )}
-              </motion.div>
+      {/* form card */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white dark:bg-neutral-800 rounded-xl p-6
+                   border border-neutral-200 dark:border-neutral-700 space-y-6"
+      >
+        {/* loading indicator */}
+        {loading && (
+          <div className="h-1 rounded bg-gray-200 dark:bg-gray-700 overflow-hidden mb-4">
+            <div className="h-full w-full animate-pulse bg-gray-700 dark:bg-gray-400" />
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {apiKeyConfigs.map((config) => (
+            <div key={config.name} className="space-y-2">
+              <ApiKeyInput
+                label={config.label}
+                name={config.name}
+                value={apiKeys[config.name]}
+                onChange={handleInputChange}
+                required={config.required}
+                description={config.description}
+                showPassword={showPasswords[config.name]}
+                onTogglePassword={() => togglePasswordVisibility(config.name)}
+                status={status[config.name]}
+                link={config.link}
+              />
+              
+              
+            </div>
             ))}
 
-
-            {/* Info card */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4"
-            >
-              <div className="flex items-start space-x-3">
-                <FiAlertCircle className="w-5 h-5 text-blue-500 mt-0.5" />
-                <div className="text-sm text-blue-700 dark:text-blue-300">
-                  <p className="font-medium mb-1">API Key Security</p>
-                  <p>Your API keys are stored securely and are only used for processing your requests. They are not shared with third parties.</p>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Submit button */}
-            <motion.button
+          <div className="flex flex-col sm:flex-row gap-3 pt-6">
+            <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center px-6 py-3 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-400 text-white font-medium rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              className="flex-1 flex items-center justify-center gap-2 px-6 py-3
+                         rounded-md bg-gray-900 hover:bg-gray-800 disabled:bg-gray-400
+                         text-white font-medium transition-colors duration-150"
             >
               {loading ? (
                 <>
-                  <LoadingSpinner size="sm" className="mr-2" />
-                  Configuring...
+                <LoadingSpinner size="sm" />
+                Configuring...
                 </>
-              ) : (
-                'Configure API Keys'
-              )}
-            </motion.button>
+                ) : (
+                <>
+                <FiKey className="w-5 h-5" />
+                Save Configuration
+                </>
+                )}
+              </button>
+              
+              <button
+                type="button"
+                onClick={progressToNextStep}
+                className="flex-1 flex items-center justify-center gap-2 px-6 py-3
+                           rounded-md border border-gray-300 dark:border-gray-600
+                           bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800
+                           text-gray-900 dark:text-gray-100 font-medium 
+                           transition-colors duration-150"
+              >
+                Skip for Now
+              </button>
+            </div>
           </form>
+
+          {/* security notice */}
+          <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
+            <div className="flex items-start gap-3">
+              <FiAlertCircle className="w-5 h-5 text-gray-600 dark:text-gray-400 mt-0.5 flex-shrink-0" />
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="font-medium mb-1">API Key Security</p>
+                <p>Your API keys are encrypted and stored securely. You can update or remove them at any time.</p>
+              </div>
+            </div>
+          </div>
         </motion.div>
       </div>
-  );
+      );
 };
 
 export default ApiSetupForm;

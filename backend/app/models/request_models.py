@@ -26,7 +26,19 @@ class ScriptUpdateRequest(BaseModel):
 # REMOVED: BulletPointRequest
 
 class AudioGenerationRequest(BaseModel):
-    voice_selection: Dict[str, str] = {"English": "meera", "Hindi": "amol"}
+    voice_selection: Dict[str, str] = {
+        "English": "vidya",
+        "Hindi": "vidya",
+        "Bengali": "vidya",
+        "Gujarati": "vidya",
+        "Kannada": "vidya",
+        "Malayalam": "vidya",
+        "Marathi": "vidya",
+        "Odia": "vidya",
+        "Punjabi": "vidya",
+        "Tamil": "vidya",
+        "Telugu": "vidya"
+    }
     hinglish_iterations: int = 3
     show_hindi_debug: bool = False
     selected_language: str

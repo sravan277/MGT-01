@@ -47,5 +47,5 @@ export const ApiProvider = ({ children }) => {
     <ApiContext.Provider value={value}>
       {children}
     </ApiContext.Provider>
-  );
+    );
 };

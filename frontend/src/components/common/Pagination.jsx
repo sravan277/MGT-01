@@ -1,131 +1,106 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { FiX, FiEdit3, FiCheck } from 'react-icons/fi';
+import React from 'react';
+import { motion } from 'framer-motion';
+import { FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 
-const Tab = ({ 
-  id,
-  title, 
-  isActive, 
-  onClick, 
-  onClose,
-  hasChanges = false,
-  isCompleted = false,
-  className = '' 
-}) => (
-  <motion.div
-    layout
-    initial={{ opacity: 0, x: -20 }}
-    animate={{ opacity: 1, x: 0 }}
-    exit={{ opacity: 0, x: -20 }}
-    className={`
-      relative flex items-center min-w-0 max-w-xs group cursor-pointer
-      ${isActive 
-        ? 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 z-10' 
-        : 'bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'
-      }
-      border-t border-l border-r rounded-t-lg transition-all duration-200
-      ${className}
-    `}
-    style={{
-      clipPath: isActive 
-        ? 'polygon(0% 0%, calc(100% - 12px) 0%, 100% 100%, 12px 100%)' 
-        : 'polygon(0% 0%, calc(100% - 8px) 0%, 100% 100%, 8px 100%)',
-      marginRight: '-8px',
-      paddingLeft: '16px',
-      paddingRight: '20px'
-    }}
-  >
-    <button
-      onClick={onClick}
-      className="flex items-center space-x-2 py-3 px-2 min-w-0 flex-1 focus:outline-none"
-    >
-      {/* Status indicator */}
-      <div className={`w-3 h-3 rounded-full flex-shrink-0 ${
-        isCompleted 
-          ? 'bg-green-500' 
-          : hasChanges 
-          ? 'bg-yellow-500' 
-          : 'bg-gray-400'
-      }`}>
-        {isCompleted && (
-          <FiCheck className="w-2.5 h-2.5 text-white ml-0.5 mt-0.5" />
-        )}
-      </div>
-      
-      {/* Tab title */}
-      <span className={`
-        text-sm font-medium truncate transition-colors duration-200
-        ${isActive 
-          ? 'text-gray-900 dark:text-white' 
-          : 'text-gray-600 dark:text-gray-300'
-        }
-      `}>
-        {title}
-      </span>
-    </button>
+const ChromeTabs = ({ tabs = [], activeTab, onTabClick, showNavigation }) => {
+  if (!tabs.length) return null;
 
-    {/* Close button - only show on hover for non-active tabs */}
-    {onClose && (
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onClose(id);
-        }}
-        className={`
-          p-1 rounded-full transition-all duration-200 flex-shrink-0
-          ${isActive 
-            ? 'opacity-70 hover:opacity-100 hover:bg-gray-200 dark:hover:bg-gray-600' 
-            : 'opacity-0 group-hover:opacity-70 hover:opacity-100 hover:bg-gray-200 dark:hover:bg-gray-500'
-          }
-        `}
-      >
-        <FiX className="w-3 h-3 text-gray-500 dark:text-gray-400" />
-      </button>
-    )}
-  </motion.div>
-);
+  const currentIndex = tabs.findIndex(tab => tab.id === activeTab);
+  const canGoPrev = currentIndex > 0;
+  const canGoNext = currentIndex < tabs.length - 1;
 
-const ChromeTabs = ({ 
-  tabs = [], 
-  activeTab, 
-  onTabClick, 
-  onTabClose,
-  className = '',
-  showAddButton = false,
-  onAddTab
-}) => {
+  const handlePrevious = () => {
+    if (canGoPrev) {
+      onTabClick(tabs[currentIndex - 1].id);
+    }
+  };
+
+  const handleNext = () => {
+    if (canGoNext) {
+      onTabClick(tabs[currentIndex + 1].id);
+    }
+  };
+
   return (
-    <div className={`flex items-end space-x-0 ${className}`}>
-      {/* Tab bar background */}
-      <div className="flex items-end border-b border-gray-200 dark:border-gray-700 min-h-0 relative">
-        <AnimatePresence mode="popLayout">
-          {tabs.map((tab) => (
-            <Tab
+    <div className="space-y-4 sm:space-y-6">
+      {/* Chrome-style tabs */}
+      <div className="flex space-x-1 overflow-x-auto hide-scrollbar">
+        {tabs.map((tab) => {
+          const isActive = tab.id === activeTab;
+          
+          return (
+            <motion.button
               key={tab.id}
-              id={tab.id}
-              title={tab.title}
-              isActive={tab.id === activeTab}
+              whileTap={{ scale: 0.98 }}
               onClick={() => onTabClick(tab.id)}
-              onClose={onTabClose}
-              hasChanges={tab.hasChanges}
-              isCompleted={tab.isCompleted}
-            />
-          ))}
-        </AnimatePresence>
-        
-        {/* Add button */}
-        {showAddButton && onAddTab && (
-          <button
-            onClick={onAddTab}
-            className="flex items-center justify-center w-8 h-8 ml-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors duration-200"
-          >
-            <FiEdit3 className="w-4 h-4" />
-          </button>
-        )}
+              className={`relative px-3 sm:px-4 py-2 sm:py-3 rounded-t-md font-medium transition-all duration-200 focus:outline-none whitespace-nowrap min-w-[100px] sm:min-w-[120px] flex items-center justify-center gap-2 text-sm sm:text-base ${
+                isActive
+                ? 'bg-white dark:bg-gray-900 border-x border-t border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 shadow-sm -mb-px'
+                : 'bg-gray-100 dark:bg-gray-900 text-gray-600 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+              style={{
+                borderBottom: isActive ? '1px solid transparent' : undefined,
+                marginBottom: isActive ? '-1px' : '0',
+              }}
+            >
+              <span className="truncate">{tab.title}</span>
+              
+              {/* Status indicators */}
+              <div className="flex items-center gap-1">
+                {tab.hasChanges && (
+                  <div className="w-2 h-2 bg-amber-500 rounded-full" title="Has unsaved changes" />
+                )}
+                {tab.isCompleted && !tab.hasChanges && (
+                  <div className="w-2 h-2 bg-emerald-500 rounded-full" title="Completed" />
+                )}
+                {tab.isLoading && (
+                  <div className="w-3 h-3">
+                    <div className="w-3 h-3 border-2 border-gray-400 dark:border-gray-600 border-t-gray-600 dark:border-t-gray-400 rounded-full animate-spin" />
+                  </div>
+                )}
+              </div>
+              
+              {/* Active tab indicator */}
+              {isActive && (
+                <motion.div
+                  layoutId="activeTab"
+                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900 dark:bg-gray-100"
+                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                />
+              )}
+            </motion.button>
+          );
+        })}
       </div>
-      
-      {/* Extend the border to fill remaining space */}
-      <div className="flex-1 border-b border-gray-200 dark:border-gray-700 h-px"></div>
+
+      {/* Mobile Navigation Controls - Only visible on phones */}
+      {tabs.length > 1 && (
+        <div className="block sm:hidden">
+          <div className="flex items-center justify-between px-4">
+            <button
+              onClick={handlePrevious}
+              disabled={!canGoPrev}
+              className="flex items-center gap-2 px-4 py-3 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 min-h-[44px] touch-manipulation"
+            >
+              <FiChevronLeft className="w-5 h-5" />
+              <span className="text-sm font-medium">Previous</span>
+            </button>
+
+            <div className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+              {currentIndex + 1} of {tabs.length}
+            </div>
+
+            <button
+              onClick={handleNext}
+              disabled={!canGoNext}
+              className="flex items-center gap-2 px-4 py-3 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 min-h-[44px] touch-manipulation"
+            >
+              <span className="text-sm font-medium">Next</span>
+              <FiChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

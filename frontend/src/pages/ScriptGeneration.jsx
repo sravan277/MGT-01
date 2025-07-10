@@ -1,442 +1,343 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+// frontend/src/pages/ScriptGeneration.jsx
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  FiEdit3, FiSave, FiRefreshCw, FiImage, FiList, 
-  FiCheck, FiX, FiMinus, FiArrowRight, FiArrowLeft
+import {
+  FiEdit3,
+  FiSave,
+  FiRefreshCw,
+  FiCheck,
+  FiPlay,
+  FiImage,
+  FiList,
+  FiMinus,
+  FiX,
 } from 'react-icons/fi';
+
 import Layout from '../components/common/Layout';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ImageSelector from '../components/workflow/ImageSelector';
-import { useWorkflow } from '../contexts/WorkflowContext';
+import ChromeTabs from '../components/common/Pagination'; // Chrome-style tab bar
+
 import { apiService } from '../services/api';
+import { useApi } from '../hooks/useApi';
+import { useWorkflow } from '../contexts/WorkflowContext';
 import toast from 'react-hot-toast';
 
-const ScriptSection = ({ 
-  sectionName, 
-  script, 
-  bulletPoints = [], 
-  selectedImage, 
-  onScriptChange, 
-  onBulletPointsChange,
-  onImageSelect,
-  onSave,
-  paperId,
-  availableImages,
-  isSaving,
-  hasLocalChanges
-}) => {
-  const [localScript, setLocalScript] = useState(script);
-  const [localBullets, setLocalBullets] = useState(bulletPoints);
-  const [isEditing, setIsEditing] = useState(false);
-  const [showImageSelector, setShowImageSelector] = useState(false);
+const ScriptTextarea = ({ value, onChange, disabled = false }) => (
+  <textarea
+    value={value}
+    onChange={(e) => onChange(e.target.value)}
+    disabled={disabled}
+    className={`w-full min-h-[200px] px-3 py-2 border rounded-md resize-y transition-all duration-150 ${
+      disabled
+      ? 'border-neutral-300 dark:border-neutral-600 bg-neutral-50 dark:bg-neutral-700 text-neutral-500 dark:text-neutral-400'
+      : 'border-neutral-300 dark:border-neutral-600 focus:outline-none focus:ring-2 focus:ring-neutral-700 hover:border-neutral-400 dark:hover:border-neutral-500'
+    } bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500`}
+    placeholder="Edit narration script here…"
+    />
+    );
 
-  // Update local state when props change
+const BulletPointInput = ({ value, onChange, onRemove, disabled = false }) => (
+  <div className="flex items-center gap-2">
+    <span className="text-neutral-400 dark:text-neutral-500">•</span>
+    <input
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      disabled={disabled}
+      className={`flex-1 px-3 py-2 text-sm border rounded-md transition-colors duration-150 ${
+        disabled
+        ? 'border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-700 text-neutral-500 dark:text-neutral-400'
+        : 'border-neutral-300 dark:border-neutral-600 focus:outline-none focus:ring-2 focus:ring-neutral-700 hover:border-neutral-400 dark:hover:border-neutral-500'
+      } bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500`}
+      placeholder="Enter bullet point..."
+    />
+    {!disabled && (
+      <button
+        onClick={onRemove}
+        className="p-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors duration-150"
+        title="Remove bullet point"
+      >
+        <FiMinus className="w-4 h-4" />
+      </button>
+      )}
+  </div>
+  );
+
+const SectionPanel = ({
+  section,
+  script,
+  onScriptChange,
+  bullets,
+  onBulletsChange,
+  selectedImage,
+  onSelectImage,
+  paperId,
+  images,
+  savingScripts,
+  generateBullets,
+  hasLocalChanges,
+}) => {
+  const [localBullets, setLocalBullets] = useState(bullets || []);
+  const [bulletGenerating, setBulletGenerating] = useState(false);
+  const [localScript, setLocalScript] = useState(script);
+
+  // Keep local state in sync
+  useEffect(() => {
+    setLocalBullets(bullets || []);
+  }, [bullets]);
+
   useEffect(() => {
     setLocalScript(script);
   }, [script]);
 
-  useEffect(() => {
-    setLocalBullets(bulletPoints);
-  }, [bulletPoints]);
-
-  const handleSave = async () => {
-    try {
-      await onSave(sectionName, localScript, localBullets);
-      setIsEditing(false);
-    } catch (error) {
-      console.error('Save error:', error);
-      // Don't close editing mode on error
-    }
+  const handleBulletChange = (idx, value) => {
+    const updated = [...localBullets];
+    updated[idx] = value;
+    setLocalBullets(updated);
+    onBulletsChange(section, updated);
   };
 
-  const handleCancel = () => {
-    setLocalScript(script);
-    setLocalBullets(bulletPoints);
-    setIsEditing(false);
+  const addBullet = () => {
+    const updated = [...localBullets, ''];
+    setLocalBullets(updated);
+    onBulletsChange(section, updated);
   };
 
-  const addBulletPoint = () => {
-    setLocalBullets([...localBullets, '']);
+  const removeBullet = (idx) => {
+    const updated = localBullets.filter((_, i) => i !== idx);
+    setLocalBullets(updated);
+    onBulletsChange(section, updated);
   };
 
-  const removeBulletPoint = (index) => {
-    setLocalBullets(localBullets.filter((_, i) => i !== index));
-  };
-
-  const updateBulletPoint = (index, value) => {
-    const newBullets = [...localBullets];
-    newBullets[index] = value;
-    setLocalBullets(newBullets);
-  };
-
-  const handleImageSelect = async (imageName) => {
-    try {
-      await apiService.assignImageToSection(paperId, sectionName, imageName);
-      onImageSelect(sectionName, imageName);
-      toast.success(`Image ${imageName ? 'assigned' : 'removed'} successfully!`);
-    } catch (error) {
-      console.error('Error assigning image:', error);
-      toast.error('Failed to assign image');
-    }
+  const handleScriptChange = (value) => {
+    setLocalScript(value);
+    onScriptChange(section, value);
   };
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm"
+      className="space-y-2"
     >
-      {/* Section Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center space-x-3">
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-            {sectionName}
-          </h3>
-          
+
+      {/* Script Editor */}
+      <div className="bg-white dark:bg-neutral-900 rounded-md p-6 border border-neutral-300 dark:border-neutral-600 space-y-1">
+        <div className="flex items-center justify-between">
+          {/* Section Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+          {/*<h3 className="text-xl font-semibold text-neutral-900 dark:text-white capitalize">
+            {section.replace(/_/g, ' ')}
+          </h3>*/}
+
           {/* Status indicators */}
-          <div className="flex items-center space-x-2">
-            {selectedImage && (
-              <div className="flex items-center space-x-1 px-2 py-1 bg-green-100 dark:bg-green-900/20 rounded-full">
-                <FiImage className="w-3 h-3 text-green-600 dark:text-green-400" />
-                <span className="text-xs text-green-600 dark:text-green-400">Image</span>
+              <div className="flex items-center space-x-2">
+                {selectedImage && (
+                  <div className="flex items-center space-x-1 px-2 py-1 bg-green-100 dark:bg-green-900/20 rounded-full">
+                    <FiImage className="w-3 h-3 text-green-600 dark:text-green-400" />
+                    <span className="text-xs text-green-600 dark:text-green-400">Image</span>
+                  </div>
+                  )}
+
+                {hasLocalChanges && (
+                  <div className="flex items-center space-x-1 px-2 py-1 bg-yellow-100 dark:bg-yellow-900/20 rounded-full">
+                    <FiEdit3 className="w-3 h-3 text-yellow-600 dark:text-yellow-400" />
+                    <span className="text-xs text-yellow-600 dark:text-yellow-400">Modified</span>
+                  </div>
+                  )}
               </div>
-            )}
-            
-            {hasLocalChanges && (
-              <div className="flex items-center space-x-1 px-2 py-1 bg-yellow-100 dark:bg-yellow-900/20 rounded-full">
-                <FiEdit3 className="w-3 h-3 text-yellow-600 dark:text-yellow-400" />
-                <span className="text-xs text-yellow-600 dark:text-yellow-400">Modified</span>
-              </div>
-            )}
+            </div>
+          </div>
+          <div className="flex items-center space-x-2 text-xs text-neutral-500 dark:text-neutral-400">
+            <span>{localScript.length} characters</span>
+            <span>•</span>
+            <span>~{Math.ceil(localScript.length / 150)} minutes</span>
           </div>
         </div>
         
-        <div className="flex items-center space-x-2">
-          {!isEditing ? (
-            <button
-              onClick={() => setIsEditing(true)}
-              className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200"
-              title="Edit section"
-            >
-              <FiEdit3 className="w-4 h-4" />
-            </button>
-          ) : (
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={handleSave}
-                disabled={isSaving}
-                className="flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-medium rounded-lg transition-colors duration-200"
-                title="Save changes"
-              >
-                {isSaving ? (
-                  <>
-                    <LoadingSpinner size="sm" className="mr-2" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <FiSave className="w-4 h-4 mr-2" />
-                    Save Section
-                  </>
-                )}
-              </button>
-              <button
-                onClick={handleCancel}
-                className="p-2 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-colors duration-200"
-                title="Cancel changes"
-                disabled={isSaving}
-              >
-                <FiX className="w-4 h-4" />
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Script Editor */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-2">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Presentation Script
-          </label>
-          {isEditing && (
-            <div className="flex items-center space-x-2 text-xs text-gray-500 dark:text-gray-400">
-              <span>{localScript.length} characters</span>
-              <span>•</span>
-              <span>~{Math.ceil(localScript.length / 150)} minutes</span>
-            </div>
-          )}
-        </div>
-        <textarea
-          value={localScript}
-          onChange={(e) => setLocalScript(e.target.value)}
-          disabled={!isEditing}
-          className={`w-full h-32 px-4 py-3 border rounded-lg transition-all duration-200 resize-none ${
-            isEditing
-              ? 'border-primary-500 dark:border-primary-600 focus:ring-2 focus:ring-primary-500 focus:border-transparent'
-              : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700'
-          } dark:bg-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500`}
-          placeholder={`Enter narration script for ${sectionName}...`}
+        <ScriptTextarea 
+          value={localScript} 
+          onChange={handleScriptChange}
+          disabled={savingScripts}
         />
       </div>
 
-      {/* Bullet Points Section */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Slide Bullet Points
-          </label>
-          
-          {isEditing && (
-            <button
-              onClick={addBulletPoint}
-              className="flex items-center px-3 py-1 text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
-              title="Add bullet point"
-            >
-              <FiList className="w-3 h-3 mr-1" />
-              Add Bullet
-            </button>
-          )}
-        </div>
-        
-        <div className="space-y-2">
-          {localBullets.length > 0 ? (
-            localBullets.map((bullet, index) => (
-              <div key={index} className="flex items-start space-x-2">
-                <span className="text-gray-400 dark:text-gray-500 mt-2">•</span>
-                <input
-                  type="text"
-                  value={bullet}
-                  onChange={(e) => updateBulletPoint(index, e.target.value)}
-                  disabled={!isEditing}
-                  className={`flex-1 px-3 py-2 text-sm border rounded-lg transition-colors duration-200 ${
-                    isEditing
-                      ? 'border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-primary-500 focus:border-transparent'
-                      : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700'
-                  } dark:bg-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500`}
-                  placeholder="Enter bullet point..."
+      {/* Bullet Points + Image picker */}
+      <div className="grid lg:grid-cols-2 gap-3">
+        {/* Bullet Points */}
+        <div className="bg-white dark:bg-neutral-900 rounded-md p-6 border border-neutral-300 dark:border-neutral-600 space-y-4">
+          <h4 className="font-medium flex items-center gap-2 text-neutral-900 dark:text-white">
+            <FiList className="w-4 h-4" /> Slide Bullet Points
+          </h4>
+
+          <div className="space-y-2 max-h-60 overflow-y-auto">
+            {localBullets.map((bp, i) => (
+              <BulletPointInput
+                key={i}
+                value={bp}
+                onChange={(val) => handleBulletChange(i, val)}
+                onRemove={() => removeBullet(i)}
+                disabled={savingScripts}
                 />
-                {isEditing && (
-                  <button
-                    onClick={() => removeBulletPoint(index)}
-                    className="p-2 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors duration-200"
-                    title="Remove bullet point"
-                  >
-                    <FiMinus className="w-4 h-4" />
-                  </button>
+                ))}
+            
+            {localBullets.length === 0 ? (
+              <div className="text-center py-6 text-neutral-500 dark:text-neutral-400 italic border-2 border-dashed border-neutral-200 dark:border-neutral-700 rounded-md">
+                <FiList className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                <p>No bullet points yet.</p>
+                <p className="text-xs mt-1">Add bullet points manually.</p>
+              </div>
+              ) : (
+              <button
+                onClick={addBullet}
+                disabled={savingScripts}
+                className="w-full py-2 border-2 border-dashed border-neutral-300 dark:border-neutral-600 rounded-md text-sm text-neutral-500 hover:border-neutral-400 dark:hover:border-neutral-500 transition disabled:opacity-50"
+              >
+                + Add bullet point
+              </button>
+              )}
+            </div>
+          </div>
+
+        {/* Image picker */}
+          <div className="bg-white dark:bg-neutral-900 rounded-md p-6 border border-neutral-300 dark:border-neutral-600 space-y-4">
+            <h4 className="font-medium flex items-center gap-2 text-neutral-900 dark:text-white">
+              <FiImage className="w-4 h-4" /> Slide Image
+            </h4>
+
+            <div className="aspect-video bg-neutral-100 dark:bg-gray-900 rounded-md overflow-hidden border border-neutral-200 dark:border-neutral-700 flex items-center justify-center">
+              {selectedImage ? (
+                <div className="relative w-full h-full">
+                  <img
+                    src={apiService.getImageUrl(paperId, selectedImage)}
+                    alt={selectedImage}
+                    className="object-contain w-full h-full"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                    }}
+                  />
+                  <div className="absolute bottom-2 left-2 px-2 py-1 bg-black bg-opacity-60 text-white text-xs rounded">
+                    {selectedImage}
+                  </div>
+                </div>
+                ) : (
+                <div className="text-center">
+                  <FiImage className="w-8 h-8 text-neutral-400 dark:text-gray-800 mx-auto mb-2" />
+                  <span className="text-neutral-400 dark:text-gray-500">No image selected</span>
+                  <p className="text-xs text-neutral-400 dark:text-gray-500 mt-1">Text-only slide</p>
+                </div>
                 )}
               </div>
-            ))
-          ) : (
-            <div className="text-center py-6 text-gray-500 dark:text-gray-400 italic border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg">
-              <FiList className="w-8 h-8 mx-auto mb-2 opacity-50" />
-              <p>No bullet points yet.</p>
-              {isEditing && <p className="text-xs mt-1">Click "Add Bullet" to create bullet points.</p>}
-            </div>
-          )}
-        </div>
-      </div>
 
-      {/* Image Assignment */}
-      <div className="mb-4">
-        <div className="flex items-center justify-between mb-3">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Slide Image
-          </label>
-          <button
-            onClick={() => setShowImageSelector(true)}
-            className="text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 flex items-center space-x-1 transition-colors duration-200"
-          >
-            <FiImage className="w-4 h-4" />
-            <span>{selectedImage ? 'Change Image' : 'Select Image'}</span>
-          </button>
-        </div>
-
-        {selectedImage ? (
-          <div className="relative w-full h-32 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden border-2 border-green-200 dark:border-green-800">
-            <img
-              src={apiService.getImageUrl(paperId, selectedImage)}
-              alt={`${sectionName} slide`}
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                e.target.style.display = 'none';
-              }}
-            />
-            <div className="absolute bottom-2 left-2 px-2 py-1 bg-black bg-opacity-60 text-white text-xs rounded">
-              {selectedImage}
+              <button
+                onClick={() => onSelectImage(section)}
+                disabled={savingScripts}
+                className="w-full px-4 py-2 bg-neutral-900 hover:bg-neutral-700 dark:bg-gray-900 dark:hover:bg-gray-600 text-white dark:text-white font-medium rounded-md transition-colors duration-150 disabled:opacity-50"
+              >
+                {selectedImage ? 'Change Image' : 'Select Image'}
+              </button>
             </div>
           </div>
-        ) : (
-          <div className="w-full h-32 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-600">
-            <div className="text-center">
-              <FiImage className="w-8 h-8 text-gray-400 dark:text-gray-500 mx-auto mb-2" />
-              <p className="text-sm text-gray-500 dark:text-gray-400">No image selected</p>
-              <p className="text-xs text-gray-400 dark:text-gray-500">Text-only slide</p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Image Selector Modal */}
-      <AnimatePresence>
-        {showImageSelector && (
-          <ImageSelector
-            paperId={paperId}
-            images={availableImages}
-            selectedImage={selectedImage}
-            onSelect={(image) => {
-              handleImageSelect(image);
-              setShowImageSelector(false);
-            }}
-            onClose={() => setShowImageSelector(false)}
-          />
-        )}
-      </AnimatePresence>
-    </motion.div>
-  );
+        </motion.div>
+        );
 };
 
 const ScriptGeneration = () => {
-  const { 
-    paperId, 
-    scripts, 
+  const {
+    paperId,
+    metadata,
+    scripts,
     editedScripts,
     bulletPoints,
+    images,
+    selectedImages,
     setScripts,
     setEditedScripts,
     setBulletPoints,
-    images, 
-    selectedImages, 
+    updateScript,
+    updateBulletPoints,
     setSelectedImage,
-    progressToNextStep 
+    progressToNextStep,
   } = useWorkflow();
-  
-  const [loading, setLoading] = useState(false);
-  const [sectionSavingStates, setSectionSavingStates] = useState({});
-  const [refreshing, setRefreshing] = useState(false);
+
+  const { loading: apiLoading, execute } = useApi();
+
+  const [generating, setGenerating] = useState(false);
+  const [savingScripts, setSavingScripts] = useState(false);
+  const [activeTab, setActiveTab] = useState(null);
+  const [imageSelectorSection, setImageSelectorSection] = useState(null);
   const [localChanges, setLocalChanges] = useState({});
-  const [hasGeneratedScripts, setHasGeneratedScripts] = useState(false);
-  const [activeTab, setActiveTab] = useState(0);
   
   // Use refs to track initialization to prevent multiple loads
   const initializationRef = useRef(false);
   const loadingRef = useRef(false);
+  const autoGenerateRef = useRef(false);
 
-  const sections = ['Introduction', 'Methodology', 'Results', 'Discussion', 'Conclusion'];
-
-  // Calculate if there are any unsaved changes
-  const hasChanges = Object.keys(localChanges).some(key => localChanges[key]);
-
-  // Check if any section is currently being saved
-  const isAnySectionSaving = Object.values(sectionSavingStates).some(saving => saving);
-
-  // Better logic for determining if scripts exist
-  const hasScripts = (editedScripts && Object.keys(editedScripts).length > 0) || hasGeneratedScripts;
-
-  const getAvailableSections = () => {
-    return sections.filter(section => editedScripts[section] !== undefined);
-  };
-
-  // ADD: Effect to ensure active tab is valid when sections change
-  useEffect(() => {
-    const availableSections = getAvailableSections();
-    if (availableSections.length > 0) {
-      const currentSection = sections[activeTab];
-      if (!availableSections.includes(currentSection)) {
-        // If current tab doesn't have content, switch to first available section
-        const firstAvailableIndex = sections.findIndex(section => 
-          availableSections.includes(section)
-        );
-        if (firstAvailableIndex !== -1) {
-          setActiveTab(firstAvailableIndex);
-        }
-      }
-    }
-  }, [editedScripts, activeTab]);
-  const refreshDataFromServer = useCallback(async () => {
-    if (!paperId) return false;
-    
-    try {
-      console.log('Fetching latest data from server...');
-      const response = await apiService.getScriptsWithBullets(paperId);
-      const sectionsData = response.data.sections || {};
-      
-      if (Object.keys(sectionsData).length > 0) {
-        const refreshedScripts = {};
-        const refreshedBullets = {};
-        const refreshedImages = {};
-        
-        Object.entries(sectionsData).forEach(([section, data]) => {
-          refreshedScripts[section] = data.script || '';
-          refreshedBullets[section] = data.bullet_points || [];
-          if (data.assigned_image) {
-            refreshedImages[section] = data.assigned_image;
-          }
-        });
-        
-        // FIXED: Only update states if we have data to prevent flickering
-        if (Object.keys(refreshedScripts).length > 0) {
-          setScripts(refreshedScripts);
-          setEditedScripts(refreshedScripts);
-        }
-        
-        if (Object.keys(refreshedBullets).length > 0) {
-          setBulletPoints(refreshedBullets);
-        }
-        
-        // Update selected images
-        Object.entries(refreshedImages).forEach(([section, image]) => {
-          setSelectedImage(section, image);
-        });
-        
-        console.log('Successfully refreshed data from server');
-        
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error('Failed to refresh data from server:', error);
-      return false;
-    } finally {
-      setRefreshing(false);
-      loadingRef.current = false;
-    }
-  }, [paperId, setScripts, setEditedScripts, setBulletPoints, setSelectedImage]);
-
-  // Load existing scripts on component mount
-  const loadExistingScripts = useCallback(async () => {
+  /* ------------------------------------------------------------------ */
+  /*  Load existing scripts + bullets                                    */
+  /* ------------------------------------------------------------------ */
+  const loadExisting = useCallback(async () => {
     if (!paperId || initializationRef.current || loadingRef.current) {
       return;
     }
-
+    
     loadingRef.current = true;
     console.log('Loading existing scripts for paperId:', paperId);
     
     try {
-      const success = await refreshDataFromServer();
-      if (success) {
-        setHasGeneratedScripts(true);
+      const res = await apiService.getScriptsWithBullets(paperId);
+      const sectionsData = res.data.sections || {};
+      
+      if (Object.keys(sectionsData).length > 0) {
+        const loadedScripts = {};
+        const loadedBullets = {};
+        const loadedImages = {};
+        
+        Object.entries(sectionsData).forEach(([section, data]) => {
+          loadedScripts[section] = data.script || '';
+          loadedBullets[section] = data.bullet_points || [];
+          if (data.assigned_image) {
+            loadedImages[section] = data.assigned_image;
+          }
+        });
+        
+        setScripts(loadedScripts);
+        setEditedScripts(loadedScripts);
+        setBulletPoints(loadedBullets);
+        
+        // Update selected images
+        Object.entries(loadedImages).forEach(([section, image]) => {
+          setSelectedImage(section, image);
+        });
+        
+        setActiveTab(Object.keys(loadedScripts)[0]);
         initializationRef.current = true;
-        console.log('Scripts loaded and state updated successfully');
+        console.log('Scripts loaded successfully');
       }
-    } catch (error) {
-      console.log('No existing scripts found or error loading:', error);
+    } catch (err) {
+      console.log('No existing scripts found or error loading:', err);
     } finally {
       loadingRef.current = false;
     }
-  }, [paperId, refreshDataFromServer]);
+  }, [paperId, setScripts, setEditedScripts, setBulletPoints, setSelectedImage]);
 
-  // Load scripts on component mount
   useEffect(() => {
     if (paperId && !initializationRef.current) {
-      loadExistingScripts();
+      loadExisting();
     }
-  }, [paperId, loadExistingScripts]);
+  }, [paperId, loadExisting]);
 
-  const handleGenerateScript = async () => {
-    if (!paperId) return;
-
-    setLoading(true);
+  /* ------------------------------------------------------------------ */
+  /*  Generate scripts                                                  */
+  /* ------------------------------------------------------------------ */
+  const handleGenerateScripts = async () => {
+    if (!paperId) {
+      toast.error('Upload a paper first');
+      return;
+    }
+    setGenerating(true);
+    
     try {
       console.log('Generating scripts for paperId:', paperId);
       
@@ -447,11 +348,25 @@ const ScriptGeneration = () => {
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Refresh data from server
-      const success = await refreshDataFromServer();
-      if (success) {
+      const res = await apiService.getScriptsWithBullets(paperId);
+      const sectionsData = res.data.sections || {};
+      
+      if (Object.keys(sectionsData).length > 0) {
+        const generatedScripts = {};
+        const generatedBullets = {};
+        
+        Object.entries(sectionsData).forEach(([section, data]) => {
+          generatedScripts[section] = data.script || '';
+          generatedBullets[section] = data.bullet_points || [];
+        });
+        
+        setScripts(generatedScripts);
+        setEditedScripts(generatedScripts);
+        setBulletPoints(generatedBullets);
+        setActiveTab(Object.keys(generatedScripts)[0]);
         setLocalChanges({});
-        setHasGeneratedScripts(true);
         initializationRef.current = true;
+        
         toast.success('Scripts generated successfully!');
       } else {
         toast.error('Scripts generated but failed to load');
@@ -460,91 +375,125 @@ const ScriptGeneration = () => {
       console.error('Error generating scripts:', error);
       toast.error('Failed to generate scripts');
     } finally {
-      setLoading(false);
+      setGenerating(false);
     }
   };
 
-  const handleScriptChange = (section, script) => {
-    setEditedScripts(prev => ({ ...prev, [section]: script }));
-    setLocalChanges(prev => ({ ...prev, [section]: true }));
-  };
+  useEffect(() => {
+    const noScriptsYet = Object.keys(scripts || {}).length === 0;
 
-  const handleBulletPointsChange = (section, bullets) => {
-    setBulletPoints(prev => ({ ...prev, [section]: bullets }));
-    setLocalChanges(prev => ({ ...prev, [section]: true }));
-  };
+    if (
+      paperId &&                 // we have a paper
+      noScriptsYet &&            // nothing to edit
+      !generating &&             // not already running
+      !apiLoading &&             // backend idle
+      !autoGenerateRef.current   // hasn't fired before
+      ) {
+      autoGenerateRef.current = true;   // lock
+      handleGenerateScripts();          // 👈 same helper you use on the button
+    }
+  }, [paperId, scripts, generating, apiLoading]);
 
-  // FIXED: Updated save function with graceful refresh
-  const handleSave = async (sectionName, script, bullets) => {
+  /* ------------------------------------------------------------------ */
+  /*  Save scripts                                                      */
+  /* ------------------------------------------------------------------ */
+  const handleSaveScripts = async () => {
     if (!paperId) return;
     
-    // Set saving state for this specific section
-    setSectionSavingStates(prev => ({ ...prev, [sectionName]: true }));
-    
+    setSavingScripts(true);
     try {
-      const sectionData = {
-        script: script || '',
-        bullet_points: bullets || []
-      };
+      // Prepare data in the format expected by the backend
+      const sectionsData = {};
+      Object.keys(editedScripts).forEach(section => {
+        sectionsData[section] = {
+          script: editedScripts[section] || '',
+          bullet_points: bulletPoints[section] || []
+        };
+      });
 
-      console.log('Saving section data:', { sectionName, sectionData });
+      console.log('Saving scripts data:', { sections: sectionsData });
 
       // Save to backend
       const response = await apiService.updateScriptsWithBullets(paperId, {
-        sections: { [sectionName]: sectionData }
+        sections: sectionsData
       });
 
       console.log('Save response:', response.data);
 
-      // Immediately update local state for responsiveness
-      setScripts(prev => ({ ...prev, [sectionName]: script }));
-      setEditedScripts(prev => ({ ...prev, [sectionName]: script }));
-      setBulletPoints(prev => ({ ...prev, [sectionName]: bullets }));
+      // Update local state
+      setScripts(editedScripts);
+      setLocalChanges({});
       
-      // Clear local changes for this section
-      setLocalChanges(prev => {
-        const newChanges = { ...prev };
-        delete newChanges[sectionName];
-        return newChanges;
-      });
-      
-      setHasGeneratedScripts(true);
-      
-      
-      
-      // FIXED: Graceful background refresh without affecting UI
-      const toastId = toast.loading('Refreshing section...');
-      setTimeout(async () => {
-        try {
-          await refreshDataFromServer();
-          console.log('Background refresh completed successfully');
-        } catch (error) {
-          console.error('Background refresh failed:', error);
-          // Don't show error toast for background refresh failures
-        } finally {
-          toast.dismiss(toastId);
-        }
-      }, 1000); // Longer delay to ensure backend processing is complete
-      
+      toast.success('Scripts saved successfully!');
     } catch (error) {
       console.error('Save error:', error);
-      toast.error(`Failed to save ${sectionName} section`);
-      throw error;
+      toast.error('Failed to save scripts');
     } finally {
-      // Clear saving state for this specific section
-      // toast.success(`${sectionName} section saved successfully!`);
-      setSectionSavingStates(prev => ({ ...prev, [sectionName]: false }));
+      setSavingScripts(false);
     }
   };
 
+  /* ------------------------------------------------------------------ */
+  /*  Bullet point generator helper                                     */
+  /* ------------------------------------------------------------------ */
+  const generateBullets = async (section, text) => {
+    const res = await apiService.generateBulletPoints(paperId, section, text);
+    return res.data?.bullet_points ?? [];
+  };
+
+  /* ------------------------------------------------------------------ */
+  /*  Track local changes                                               */
+  /* ------------------------------------------------------------------ */
+  const handleScriptChange = (section, value) => {
+    updateScript(section, value);
+    setLocalChanges(prev => ({ ...prev, [section]: true }));
+  };
+
+  const handleBulletsChange = (section, bullets) => {
+    updateBulletPoints(section, bullets);
+    setLocalChanges(prev => ({ ...prev, [section]: true }));
+  };
+
+  /* ------------------------------------------------------------------ */
+  /*  Image selector helpers                                            */
+  /* ------------------------------------------------------------------ */
+  const openImageSelector = (section) => setImageSelectorSection(section);
+  const closeImageSelector = () => setImageSelectorSection(null);
+
+  const handleImagePicked = async (image) => {
+    if (imageSelectorSection) {
+      try {
+        if (image) {
+          await apiService.assignImageToSection(paperId, imageSelectorSection, image);
+        }
+        setSelectedImage(imageSelectorSection, image);
+        toast.success(`Image ${image ? 'assigned' : 'removed'} successfully!`);
+      } catch (error) {
+        console.error('Error assigning image:', error);
+        toast.error('Failed to assign image');
+      }
+    }
+    closeImageSelector();
+  };
+
+  /* ------------------------------------------------------------------ */
+  /*  Derived values                                                    */
+  /* ------------------------------------------------------------------ */
+  const sectionKeys = Object.keys(editedScripts);
+  const hasScripts = sectionKeys.length > 0;
+  const hasChanges = Object.keys(localChanges).some(key => localChanges[key]);
+
+  /* ------------------------------------------------------------------ */
+  /*  Continue to next step                                             */
+  /* ------------------------------------------------------------------ */
   const handleContinueToSlides = () => {
     if (hasChanges) {
       toast.error('Please save your changes before continuing');
       return;
     }
     
-    if (isAnySectionSaving) {
-      toast.error('Please wait for all sections to finish saving');
+    if (savingScripts) {
+      toast.error('Please wait for scripts to finish saving');
       return;
     }
     
@@ -556,273 +505,183 @@ const ScriptGeneration = () => {
     progressToNextStep();
   };
 
-  const breadcrumbs = [
-    { label: 'Script Generation', href: '/script-generation' }
-  ];
+  const breadcrumbs = [{ label: 'Script Generation', href: '/script-generation' }];
 
   if (!paperId) {
     return (
       <Layout title="" breadcrumbs={breadcrumbs}>
         <div className="text-center py-12">
-          <FiEdit3 className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
+          <FiEdit3 className="w-16 h-16 text-neutral-400 dark:text-neutral-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-semibold text-neutral-900 dark:text-white mb-2">
             No Paper Selected
           </h2>
-          <p className="text-gray-600 dark:text-gray-400">
+          <p className="text-neutral-600 dark:text-neutral-400">
             Please upload a paper first to generate scripts.
           </p>
         </div>
       </Layout>
-    );
+      );
   }
 
+  /* ------------------------------------------------------------------ */
+  /*  Render                                                            */
+  /* ------------------------------------------------------------------ */
   return (
     <Layout title="" breadcrumbs={breadcrumbs}>
-      <div className="max-w-6xl mx-auto space-y-8">
-        {/* Header Actions */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="min-w-0">
-            <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
-              Generate Presentation Scripts
+      <div className="max-w-7xl mx-auto space-y-0">
+        {/* Header */}
+
+
+        {/* Action Bar */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white dark:bg-neutral-800 rounded-md p-6 border border-neutral-300 dark:border-neutral-600 space-y-6 mb-2"
+        >
+          <div>
+            <h2 className="text-2xl font-semibold text-neutral-900 dark:text-white">
+              {metadata?.title || 'Generate Presentation Scripts'}
             </h2>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-neutral-600 dark:text-neutral-400">
               Create and customize scripts with bullet points for your academic presentation
             </p>
           </div>
-          
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-shrink-0">
-            {!hasScripts ? (
-              <button
-                onClick={handleGenerateScript}
-                disabled={loading}
-                className="flex items-center justify-center px-6 py-3 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-400 text-white font-medium rounded-lg transition-colors duration-200"
-              >
-                {loading ? (
-                  <>
-                    <LoadingSpinner size="sm" className="mr-2" />
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <FiRefreshCw className="w-5 h-5 mr-2" />
-                    Generate Scripts
-                  </>
-                )}
-              </button>
-            ) : (
-              <button
-                onClick={handleContinueToSlides}
-                disabled={hasChanges || isAnySectionSaving}
-                className="flex items-center justify-center px-6 py-3 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-400 text-white font-medium rounded-lg transition-colors duration-200"
-              >
-                <FiArrowRight className="w-5 h-5 mr-2" />
-                Continue to Slides
-              </button>
+          {/* Progress indicator */}
+          {(generating || savingScripts) && (
+            <div className="h-1 rounded bg-neutral-200 dark:bg-neutral-700 overflow-hidden">
+              <div className="h-full w-full animate-pulse bg-neutral-700 dark:bg-neutral-400" />
+            </div>
+            )}
+
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={handleGenerateScripts}
+              disabled={generating}
+              className="flex items-center gap-2 px-4 py-2 
+                         bg-gray-900 hover:bg-gray-700 disabled:bg-gray-400 
+                         text-white font-medium rounded-md transition-colors duration-150"
+            >
+              {generating ? (
+                <>
+                  <LoadingSpinner size="sm" /> Generating
+                </>
+              ) : (
+                <>
+                  <FiRefreshCw className="w-4 h-4" />
+                  {hasScripts ? 'Regenerate' : 'Generate'}
+                </>
+              )}
+            </button>
+
+            {hasScripts && (
+              <>
+                <button
+                  onClick={handleSaveScripts}
+                  disabled={savingScripts}
+                  className="flex items-center gap-2 px-4 py-2 
+                             bg-gray-900 hover:bg-gray-700 disabled:bg-gray-400 
+                             text-white font-medium rounded-md transition-colors duration-150"
+                >
+                  {savingScripts ? (
+                    <>
+                      <LoadingSpinner size="sm" /> Saving
+                    </>
+                  ) : (
+                    <>
+                      <FiSave className="w-4 h-4" /> Save Scripts
+                    </>
+                  )}
+                </button>
+
+                <button
+                  onClick={handleContinueToSlides}
+                  disabled={hasChanges || savingScripts}
+                  className="flex items-center gap-2 px-4 py-2 
+                             bg-gray-900 hover:bg-gray-700 disabled:bg-gray-400 
+                             text-white font-medium rounded-md transition-colors duration-150 
+                             disabled:bg-gray-100 dark:disabled:bg-gray-700 
+                             disabled:text-gray-400 dark:disabled:text-gray-500"
+                >
+                  <FiCheck className="w-4 h-4" /> Continue to Slides
+                </button>
+              </>
             )}
           </div>
+
+          </motion.div>
+
+        {/* Chrome Tabs */}
+          {hasScripts && (
+            <ChromeTabs
+              tabs={sectionKeys.map((k) => ({
+                id: k,
+                title: k.replace(/_/g, ' '),
+                hasChanges: localChanges[k] || false,
+                isCompleted: bulletPoints[k]?.length > 0,
+              }))}
+              activeTab={activeTab}
+              onTabClick={setActiveTab}
+              />
+              )}
+
+        {/* Section Panel */}
+          {hasScripts && activeTab && (
+            <SectionPanel
+              key={activeTab}
+              section={activeTab}
+              script={editedScripts[activeTab]}
+              onScriptChange={handleScriptChange}
+              bullets={bulletPoints[activeTab] || []}
+              onBulletsChange={handleBulletsChange}
+              selectedImage={selectedImages[activeTab]}
+              onSelectImage={openImageSelector}
+              paperId={paperId}
+              images={images}
+              savingScripts={savingScripts}
+              generateBullets={generateBullets}
+              hasLocalChanges={localChanges[activeTab]}
+              />
+              )}
+
+        {/* Empty state */}
+          {!hasScripts && !apiLoading && !generating && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-center py-12 bg-neutral-50 dark:bg-neutral-800 rounded-md border-2 border-dashed border-neutral-300 dark:border-neutral-600"
+            >
+              <FiEdit3 className="w-16 h-16 text-neutral-400 dark:text-neutral-500 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-neutral-900 dark:text-white mb-2">
+                No Scripts Generated Yet
+              </h3>
+              <p className="text-neutral-600 dark:text-neutral-400 mb-6">
+                Click "Generate" to let the AI create narration scripts from your paper.
+              </p>
+              <button
+                onClick={handleGenerateScripts}
+                disabled={generating}
+                className="flex items-center justify-center gap-2 px-6 py-3 bg-neutral-900 hover:bg-neutral-800 disabled:bg-neutral-400 text-white font-medium rounded-md transition-colors duration-150 mx-auto"
+              >
+                <FiPlay className="w-4 h-4" /> Generate Scripts
+              </button>
+            </motion.div>
+            )}
         </div>
 
-        {/* Changes Warning */}
-        {hasChanges && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-4"
-          >
-            <div className="flex items-center space-x-3">
-              <FiEdit3 className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
-              <div>
-                <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
-                  You have unsaved changes
-                </p>
-                <p className="text-xs text-yellow-700 dark:text-yellow-300">
-                  Please save your changes before continuing to the next step.
-                </p>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Saving Progress Warning */}
-        {isAnySectionSaving && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4"
-          >
-            <div className="flex items-center space-x-3">
-              <LoadingSpinner size="sm" />
-              <div>
-                <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                  Saving sections in progress...
-                </p>
-                <p className="text-xs text-blue-700 dark:text-blue-300">
-                  Please wait for all sections to finish saving before continuing.
-                </p>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Generation Progress */}
-        {loading && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-6"
-          >
-            <div className="flex items-center space-x-3">
-              <LoadingSpinner size="md" />
-              <div>
-                <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-200 mb-1">
-                  Generating Scripts...
-                </h3>
-                <p className="text-blue-700 dark:text-blue-300 text-sm">
-                  AI is analyzing your paper and creating presentation scripts with bullet points.
-                </p>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Script Sections with Pagination (Chrome Tabs Style) */}
-        {hasScripts && editedScripts && Object.keys(editedScripts).length > 0 && (
-          <div>
-            {/* FIXED: Tabs with proper state management */}
-            <div className="flex space-x-2 mb-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
-              {sections.map((section, idx) => {
-                const hasContent = editedScripts[section] !== undefined;
-                if (!hasContent) return null;
-                
-                const isActive = idx === activeTab;
-                
-                return (
-                  <button
-                    key={section}
-                    className={`px-4 py-2 rounded-t-lg font-medium transition-colors duration-200 focus:outline-none whitespace-nowrap
-                      ${isActive
-                        ? 'bg-white dark:bg-gray-800 border-x border-t border-gray-200 dark:border-gray-700 text-primary-600 dark:text-primary-400 -mb-px'
-                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                      }`}
-                    style={{
-                      minWidth: 120,
-                      borderBottom: isActive ? '1px solid white' : undefined,
-                    }}
-                    onClick={() => setActiveTab(idx)}
-                  >
-                    {section}
-                    {/* Visual indicator for sections with local changes */}
-                    {localChanges[section] && (
-                      <span className="ml-2 w-2 h-2 bg-yellow-500 rounded-full inline-block"></span>
-                    )}
-                    {/* Visual indicator for sections currently saving */}
-                    {sectionSavingStates[section] && (
-                      <span className="ml-2">
-                        <LoadingSpinner size="xs" />
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-            
-            {/* FIXED: Tab Content with improved rendering */}
-            <div className="min-h-[600px]">
-              <AnimatePresence mode="wait">
-                {sections.map((section, idx) => {
-                  const hasContent = editedScripts[section] !== undefined;
-                  if (!hasContent || idx !== activeTab) return null;
-                  
-                  return (
-                    <motion.div
-                      key={`tab-content-${section}`}
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -20 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <ScriptSection
-                        sectionName={section}
-                        script={editedScripts[section] || ''}
-                        bulletPoints={bulletPoints[section] || []}
-                        selectedImage={selectedImages[section]}
-                        onScriptChange={handleScriptChange}
-                        onBulletPointsChange={handleBulletPointsChange}
-                        onImageSelect={setSelectedImage}
-                        onSave={handleSave}
-                        paperId={paperId}
-                        availableImages={images}
-                        isSaving={sectionSavingStates[section] || false}
-                        hasLocalChanges={localChanges[section]}
-                      />
-                    </motion.div>
-                  );
-                })}
-              </AnimatePresence>
-            </div>
-
-            {/* ADD: Tab navigation controls for better UX */}
-            <div className="flex justify-between items-center mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-              <button
-                onClick={() => {
-                  const availableSections = getAvailableSections();
-                  const currentIndex = availableSections.findIndex(section => 
-                    sections.indexOf(section) === activeTab
-                  );
-                  if (currentIndex > 0) {
-                    const prevSection = availableSections[currentIndex - 1];
-                    setActiveTab(sections.indexOf(prevSection));
-                  }
-                }}
-                disabled={activeTab === 0 || getAvailableSections().indexOf(sections[activeTab]) === 0}
-                className="flex items-center px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-              >
-                <FiArrowLeft className="w-4 h-4 mr-2" />
-                Previous Section
-              </button>
-
-              <span className="text-sm text-gray-500 dark:text-gray-400">
-                {getAvailableSections().indexOf(sections[activeTab]) + 1} of {getAvailableSections().length} sections
-              </span>
-
-              <button
-                onClick={() => {
-                  const availableSections = getAvailableSections();
-                  const currentIndex = availableSections.findIndex(section => 
-                    sections.indexOf(section) === activeTab
-                  );
-                  if (currentIndex < availableSections.length - 1) {
-                    const nextSection = availableSections[currentIndex + 1];
-                    setActiveTab(sections.indexOf(nextSection));
-                  }
-                }}
-                disabled={getAvailableSections().indexOf(sections[activeTab]) === getAvailableSections().length - 1}
-                className="flex items-center px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-              >
-                Next Section
-                <FiArrowRight className="w-4 h-4 ml-2" />
-              </button>
-            </div>
-          </div>
-        )}
-        {!loading && !hasScripts && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600"
-          >
-            <FiEdit3 className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-              No Scripts Generated Yet
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Click "Generate Scripts" to create presentation scripts from your academic paper.
-            </p>
-          </motion.div>
-        )}
-      </div>
-    </Layout>
-  );
+      {/* Image selector modal */}
+        <AnimatePresence>
+          {imageSelectorSection && (
+            <ImageSelector
+              paperId={paperId}
+              images={images}
+              selectedImage={selectedImages[imageSelectorSection]}
+              onSelect={handleImagePicked}
+              onClose={closeImageSelector}
+              />
+              )}
+        </AnimatePresence>
+      </Layout>
+      );
 };
 
 export default ScriptGeneration;

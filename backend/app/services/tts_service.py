@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from typing import Dict, List, Optional
 from .sarvam_sdk import SarvamTTS, SarvamTTSError
+from .language_service import get_language_code, is_language_supported
 import re
 import subprocess
 import grapheme  # Add this import for proper Unicode grapheme handling
@@ -41,6 +42,10 @@ def ensure_audio_is_generated(
 
     voice = voice_selections.get(language, "meera")
     print(f"Using voice: {voice}")
+    if voice == "meera":
+        voice = "vidya"
+    elif voice == "arjun":
+        voice = "karun"
 
     # Initialize TTS client
     try:
@@ -69,6 +74,7 @@ def ensure_audio_is_generated(
                 success = tts_client.synthesize_long_text(
                     text=cleaned_text,
                     output_path=title_audio_path,
+                    target_language='en-IN',
                     voice=voice,
                     max_chunk_length=500  # Smaller chunks for reliability
                 )
@@ -96,6 +102,7 @@ def ensure_audio_is_generated(
                     success = tts_client.synthesize_long_text(
                         text=cleaned_text,
                         output_path=audio_path,
+                        target_language='en-IN',
                         voice=voice,
                         max_chunk_length=500
                     )
@@ -145,7 +152,7 @@ def ensure_hindi_audio_is_generated(
         raise ValueError("Sarvam API key is required")
 
     # Use appropriate voice for Hindi content
-    voice = voice_selections.get("hindi", "meera")
+    voice = voice_selections.get("Hindi", "vidya")
     print(f"Using Hindi voice: {voice}")
 
     # Initialize TTS client
@@ -244,6 +251,7 @@ def ensure_hindi_audio_is_generated(
                     try:
                         audio_bytes = tts_client.synthesize_text(
                             text=chunk,
+                            target_language='hi-IN',  # Specify Hindi language
                             voice=voice
                         )
                         
@@ -318,6 +326,7 @@ def ensure_hindi_audio_is_generated(
                         try:
                             audio_bytes = tts_client.synthesize_text(
                                 text=chunk,
+                                target_language='hi-IN',  # Specify Hindi language
                                 voice=voice
                             )
                             
@@ -375,6 +384,287 @@ def ensure_hindi_audio_is_generated(
 
     except Exception as e:
         print(f"Hindi audio generation error: {e}")
+        raise
+
+
+def ensure_language_audio_is_generated(
+    sarvam_api_key: str,
+    language: str,
+    paper_id: str,
+    title_intro_script: str,
+    sections_scripts: Dict[str, str],
+    voice_selections: Dict[str, str],
+    hinglish_iterations: int = 3,
+    openai_api_key: Optional[str] = None,
+    show_debug: bool = False
+) -> Dict[str, List[str]]:
+    """Generate audio files for any supported language with appropriate chunking
+    
+    Args:
+        sarvam_api_key: API key for Sarvam TTS
+        language: Target language name (e.g., 'Hindi', 'Bengali', 'Tamil')
+        paper_id: Unique paper identifier
+        title_intro_script: Title/introduction script text
+        sections_scripts: Dictionary of section scripts
+        voice_selections: Voice selection mapping
+        hinglish_iterations: Number of iterations (unused but kept for compatibility)
+        openai_api_key: OpenAI API key (unused but kept for compatibility)
+        show_debug: Enable debug output
+        
+    Returns:
+        Dict with audio_files list containing generated file names
+        
+    Raises:
+        ValueError: If language is unsupported or API connection fails
+    """
+    
+    # Validate language support
+    if not is_language_supported(language):
+        raise ValueError(f"Unsupported language: {language}")
+    
+    language_code = get_language_code(language)
+    
+    audio_files = []
+    output_dir = f"temp/audio/{paper_id}"
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+
+    if not sarvam_api_key or sarvam_api_key.strip() == "":
+        raise ValueError("Sarvam API key is required")
+
+    # Use appropriate voice for the language
+    voice = voice_selections.get(language, "vidya")
+    if show_debug:
+        print(f"Using voice for {language}: {voice}")
+
+    # Initialize TTS client
+    try:
+        tts_client = SarvamTTS(api_key=sarvam_api_key)
+        
+        if not tts_client.test_connection():
+            raise ValueError("Failed to connect to Sarvam API")
+        
+        if show_debug:
+            print("✓ Connected to Sarvam TTS API")
+        
+    except Exception as e:
+        print(f"TTS client initialization failed: {e}")
+        raise ValueError(f"Failed to initialize TTS client: {e}")
+
+    successful_generations = 0
+    
+    def get_chunk_size_for_language(lang: str) -> int:
+        """Determine appropriate chunk size based on language characteristics"""
+        # Languages with complex scripts (Devanagari, Bengali, etc.) need smaller chunks
+        complex_script_languages = ['hindi', 'bengali', 'marathi', 'nepali', 'gujarati']
+        
+        if lang.lower() in complex_script_languages:
+            return 450  # Smaller chunks for complex scripts
+        else:
+            return 500  # Standard chunk size for other languages
+    
+    def chunk_text_by_language(text: str, language: str, max_chunk_length: int = None) -> List[str]:
+        """Create chunks appropriate for the specific language"""
+        if max_chunk_length is None:
+            max_chunk_length = get_chunk_size_for_language(language)
+            
+        # For complex script languages, use grapheme-aware chunking
+        complex_script_languages = ['hindi', 'bengali', 'marathi', 'nepali', 'gujarati']
+        
+        if language.lower() in complex_script_languages:
+            # Use grapheme-aware chunking for complex scripts
+            if grapheme.length(text) <= max_chunk_length:
+                return [text]
+            
+            # Split on sentence boundaries with priority to native punctuation
+            sentences = re.split(r'(?<=[।॥.!?])\s+', text)
+            
+            chunks = []
+            current_chunk = ""
+            
+            for sentence in sentences:
+                sentence_length = grapheme.length(sentence)
+                current_length = grapheme.length(current_chunk)
+                
+                if current_length + sentence_length + 1 > max_chunk_length:
+                    if current_chunk:
+                        chunks.append(current_chunk.strip())
+                    
+                    if sentence_length > max_chunk_length:
+                        # Break long sentences at word boundaries
+                        words = sentence.split()
+                        temp_chunk = ""
+                        for word in words:
+                            word_length = grapheme.length(word)
+                            temp_length = grapheme.length(temp_chunk)
+                            
+                            if temp_length + word_length + 1 > max_chunk_length:
+                                chunks.append(temp_chunk.strip())
+                                temp_chunk = word + " "
+                            else:
+                                temp_chunk += word + " "
+                        
+                        if temp_chunk:
+                            current_chunk = temp_chunk
+                    else:
+                        current_chunk = sentence + " "
+                else:
+                    current_chunk += sentence + " "
+            
+            if current_chunk:
+                chunks.append(current_chunk.strip())
+            
+            return chunks
+        else:
+            # Use standard character-based chunking for Latin script languages
+            if len(text) <= max_chunk_length:
+                return [text]
+            
+            sentences = re.split(r'(?<=[.!?])\s+', text)
+            chunks = []
+            current_chunk = ""
+            
+            for sentence in sentences:
+                if len(current_chunk) + len(sentence) + 1 > max_chunk_length:
+                    if current_chunk:
+                        chunks.append(current_chunk.strip())
+                    
+                    if len(sentence) > max_chunk_length:
+                        # Break long sentences at word boundaries
+                        words = sentence.split()
+                        temp_chunk = ""
+                        for word in words:
+                            if len(temp_chunk) + len(word) + 1 > max_chunk_length:
+                                chunks.append(temp_chunk.strip())
+                                temp_chunk = word + " "
+                            else:
+                                temp_chunk += word + " "
+                        
+                        if temp_chunk:
+                            current_chunk = temp_chunk
+                    else:
+                        current_chunk = sentence + " "
+                else:
+                    current_chunk += sentence + " "
+            
+            if current_chunk:
+                chunks.append(current_chunk.strip())
+            
+            return chunks
+
+    def generate_audio_from_chunks(chunks: List[str], language_code, base_filename: str) -> bool:
+        """Generate audio from text chunks and combine them"""
+        temp_dir = os.path.join(output_dir, "temp_chunks")
+        Path(temp_dir).mkdir(exist_ok=True)
+        
+        chunk_files = []
+        for j, chunk in enumerate(chunks):
+            chunk_path = os.path.join(temp_dir, f"{base_filename}_chunk_{j:03d}.wav")
+            if show_debug:
+                print(f"  Processing chunk {j+1}/{len(chunks)} ({len(chunk)} chars)")
+            
+            try:
+                audio_bytes = tts_client.synthesize_text(
+                    text=chunk,
+                    target_language=language_code,  # Use language code for TTS
+                    voice=voice
+                )
+                
+                if audio_bytes and len(audio_bytes) > 0:
+                    with open(chunk_path, 'wb') as f:
+                        f.write(audio_bytes)
+                    chunk_files.append(chunk_path)
+                    if show_debug:
+                        print(f"  ✓ Generated audio for chunk {j+1}")
+                else:
+                    if show_debug:
+                        print(f"  ⨯ No audio data returned for chunk {j+1}")
+            except Exception as e:
+                if show_debug:
+                    print(f"  ⨯ Error generating audio for chunk {j+1}: {e}")
+        
+        if not chunk_files:
+            return False
+        
+        # Combine chunks using ffmpeg
+        final_path = os.path.join(output_dir, f"{base_filename}.wav")
+        
+        if len(chunk_files) == 1:
+            # If only one chunk, just copy it
+            import shutil
+            shutil.copy(chunk_files[0], final_path)
+        else:
+            # Use ffmpeg to concatenate multiple chunks
+            list_file = os.path.join(temp_dir, f"{base_filename}_list.txt")
+            with open(list_file, 'w') as f:
+                for chunk_file in chunk_files:
+                    f.write(f"file '{os.path.abspath(chunk_file)}'\n")
+            
+            try:
+                subprocess.run([
+                    'ffmpeg', '-y', '-f', 'concat', '-safe', '0',
+                    '-i', list_file, '-c', 'copy', final_path
+                ], check=True, capture_output=True)
+            except subprocess.CalledProcessError as e:
+                if show_debug:
+                    print(f"FFmpeg error: {e.stderr.decode() if e.stderr else e}")
+                # Fallback to first chunk
+                import shutil
+                shutil.copy(chunk_files[0], final_path)
+        
+        audio_files.append(final_path)
+        if show_debug:
+            print(f"✓ {language} audio: {final_path}")
+        return True
+
+    try:
+        # Generate title audio
+        if title_intro_script and title_intro_script.strip():
+            if show_debug:
+                print(f"Generating {language} title audio...")
+            
+            cleaned_text = title_intro_script
+            if cleaned_text:
+                chunks = chunk_text_by_language(cleaned_text, language)
+                if show_debug:
+                    print(f"Processing {len(chunks)} {language} chunks for title intro")
+                
+                if generate_audio_from_chunks(chunks, language_code, "00_title_introduction"):
+                    successful_generations += 1
+
+        # Generate section audios
+        section_order = ["Introduction", "Methodology", "Results", "Discussion", "Conclusion"]
+        
+        for i, section_name in enumerate(section_order, start=1):
+            if section_name in sections_scripts:
+                script_text = sections_scripts[section_name]
+                
+                if not script_text or not script_text.strip():
+                    continue
+
+                if show_debug:
+                    print(f"Generating {language} {section_name} audio...")
+                
+                cleaned_text = script_text
+                if cleaned_text:
+                    chunks = chunk_text_by_language(cleaned_text, language)
+                    if show_debug:
+                        print(f"Processing {len(chunks)} {language} chunks for {section_name}")
+                    
+                    if generate_audio_from_chunks(chunks, language_code, f"{i:02d}_{section_name.lower()}"):
+                        successful_generations += 1
+
+        if successful_generations == 0:
+            raise ValueError(f"No {language} audio files were generated successfully")
+
+        if show_debug:
+            print(f"✓ Generated {successful_generations} {language} audio files")
+        
+        return {
+            "audio_files": [Path(f).name for f in audio_files]
+        }
+
+    except Exception as e:
+        print(f"{language} audio generation error: {e}")
         raise
 
 

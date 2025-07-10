@@ -23,7 +23,7 @@ async def setup_api_keys(request: APIKeysRequest):
         try:
             import google.generativeai as genai
             genai.configure(api_key=gemini_key)
-            model = genai.GenerativeModel('gemini-1.5-flash')
+            model = genai.GenerativeModel('gemini-2.0-flash')
             model.generate_content("Hello")
             api_keys_storage["gemini_key"] = gemini_key
         except Exception as e:
@@ -83,7 +83,7 @@ def get_api_keys():
         try:
             import google.generativeai as genai
             genai.configure(api_key=gemini_key)
-            model = genai.GenerativeModel('gemini-1.5-flash')
+            model = genai.GenerativeModel('gemini-2.0-flash')
             model.generate_content("Hello")
             api_keys_storage["gemini_key"] = gemini_key
             break

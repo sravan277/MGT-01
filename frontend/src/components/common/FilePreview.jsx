@@ -15,15 +15,6 @@ const FilePreview = ({ file, onClose, onDownload }) => {
     return () => document.removeEventListener('keydown', handleEscape);
   }, [onClose]);
 
-  const toggleFullscreen = () => {
-    if (!isFullscreen) {
-      containerRef.current?.requestFullscreen();
-    } else {
-      document.exitFullscreen();
-    }
-    setIsFullscreen(!isFullscreen);
-  };
-
   const getFileType = (filename) => {
     const ext = filename.split('.').pop().toLowerCase();
     if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return 'image';
@@ -37,53 +28,65 @@ const FilePreview = ({ file, onClose, onDownload }) => {
     const type = getFileType(file.name);
     
     switch (type) {
-      case 'image':
-        return (
-          <img
-            src={file.url}
-            alt={file.name}
-            className="max-w-full max-h-full object-contain"
+    case 'image':
+      return (
+        <img
+          src={file.url}
+          alt={file.name}
+          className="max-w-full max-h-full object-contain rounded-lg"
           />
+          );
+      
+    case 'video':
+      return (
+        <video
+          src={file.url}
+          controls
+          playsInline
+          muted
+          preload="metadata"
+          className="max-w-full max-h-full rounded-lg"
+        >
+          <p className="text-neutral-500">Your browser does not support video playback.</p>
+        </video>
         );
       
-      case 'video':
-        return (
-          <video
-            src={file.url}
-            controls
-            className="max-w-full max-h-full"
-          />
+    case 'audio':
+      return (
+        <div className="flex items-center justify-center h-full">
+          <audio 
+            src={file.url} 
+            controls 
+            preload="metadata"
+            className="w-full max-w-md"
+          >
+            <p className="text-neutral-500">Your browser does not support audio playback.</p>
+          </audio>
+        </div>
         );
       
-      case 'audio':
-        return (
-          <div className="flex items-center justify-center h-full">
-            <audio src={file.url} controls className="w-full max-w-md" />
+    case 'pdf':
+      return (
+        <iframe
+          src={file.url}
+          className="w-full h-full border-0 rounded-lg"
+          title={file.name}
+          />
+          );
+      
+    default:
+      return (
+        <div className="flex items-center justify-center h-full text-neutral-500">
+          <div className="text-center">
+            <p className="mb-4">Preview not available for this file type</p>
+            <button
+              onClick={onDownload}
+              className="btn-primary"
+            >
+              Download File
+            </button>
           </div>
-        );
-      
-      case 'pdf':
-        return (
-          <iframe
-            src={file.url}
-            className="w-full h-full border-0"
-            title={file.name}
-          />
-        );
-      
-      default:
-        return (
-          <div className="flex items-center justify-center h-full text-gray-500">
-            <div className="text-center">
-              <p className="mb-4">Preview not available for this file type</p>
-              <button
-                onClick={onDownload}
-                className="px-4 py-2 bg-primary-600 text-white rounded-lg"
-              >
-                Download File
-              </button>
-            </div>
-          </div>
+        </div>
         );
     }
   };
@@ -93,33 +96,28 @@ const FilePreview = ({ file, onClose, onDownload }) => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 bg-black bg-opacity-90 flex items-center justify-center"
+      transition={{ duration: 0.15 }}
+      className="fixed inset-0 z-50 bg-black bg-opacity-70 backdrop-blur-xs flex items-center justify-center"
       onClick={onClose}
     >
       <div
         ref={containerRef}
-        className="relative w-full h-full max-w-6xl max-h-screen p-4"
+        className="relative w-full h-full max-w-6xl max-h-screen p-6"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="absolute top-4 left-4 right-4 z-10 flex items-center justify-between text-white">
-          <h3 className="text-lg font-semibold truncate">{file.name}</h3>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={toggleFullscreen}
-              className="p-2 hover:bg-white/20 rounded-lg transition-colors"
-            >
-              <FiMaximize2 className="w-5 h-5" />
-            </button>
+        <div className="absolute top-6 left-6 right-6 z-10 flex items-center justify-between text-white">
+          <h3 className="font-medium truncate">{file.name}</h3>
+          <div className="flex items-center gap-2">
             <button
               onClick={onDownload}
-              className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+              className="p-2 hover:bg-white/20 rounded-lg transition-colors duration-150"
             >
               <FiDownload className="w-5 h-5" />
             </button>
             <button
               onClick={onClose}
-              className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+              className="p-2 hover:bg-white/20 rounded-lg transition-colors duration-150"
             >
               <FiX className="w-5 h-5" />
             </button>
@@ -132,7 +130,7 @@ const FilePreview = ({ file, onClose, onDownload }) => {
         </div>
       </div>
     </motion.div>
-  );
+    );
 };
 
 export default FilePreview;

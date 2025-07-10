@@ -1,733 +1,1 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  FiDownload, FiVideo, FiFileText, FiImage, FiMic,
-  FiShare2, FiRefreshCw, FiCheckCircle, FiHome,
-  FiPlay, FiPause, FiVolume2, FiExternalLink,
-  FiCopy, FiEye, FiFolder, FiClock
-} from 'react-icons/fi';
-import { Link } from 'react-router-dom';
-import Layout from '../components/common/Layout';
-import LoadingSpinner from '../components/common/LoadingSpinner';
-import { useWorkflow } from '../contexts/WorkflowContext';
-import { apiService } from '../services/api';
-import { downloadFile, formatFileSize, copyToClipboard } from '../utils/helpers';
-import toast from 'react-hot-toast';
-
-const VideoPlayer = ({ src, title, paperId }) => {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [duration, setDuration] = useState(0);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const videoRef = React.useRef(null);
-  const containerRef = React.useRef(null);
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    const updateTime = () => setCurrentTime(video.currentTime);
-    const updateDuration = () => setDuration(video.duration);
-    const handleEnded = () => setIsPlaying(false);
-
-    video.addEventListener('timeupdate', updateTime);
-    video.addEventListener('loadedmetadata', updateDuration);
-    video.addEventListener('ended', handleEnded);
-
-    return () => {
-      video.removeEventListener('timeupdate', updateTime);
-      video.removeEventListener('loadedmetadata', updateDuration);
-      video.removeEventListener('ended', handleEnded);
-    };
-  }, [src]);
-
-  const togglePlay = () => {
-    const video = videoRef.current;
-    if (isPlaying) {
-      video.pause();
-    } else {
-      video.play();
-    }
-    setIsPlaying(!isPlaying);
-  };
-
-  const handleSeek = (e) => {
-    const video = videoRef.current;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const pos = (e.clientX - rect.left) / rect.width;
-    video.currentTime = pos * duration;
-  };
-
-  const toggleFullscreen = () => {
-    const container = containerRef.current;
-    if (!isFullscreen) {
-      if (container.requestFullscreen) {
-        container.requestFullscreen();
-      }
-    } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen();
-      }
-    }
-    setIsFullscreen(!isFullscreen);
-  };
-
-  const formatTime = (time) => {
-    const minutes = Math.floor(time / 60);
-    const seconds = Math.floor(time % 60);
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  };
-
-  return (
-    <div ref={containerRef} className="bg-black rounded-lg overflow-hidden">
-      <div className="relative aspect-video">
-        <video
-          ref={videoRef}
-          src={src}
-          className="w-full h-full object-contain"
-          onClick={togglePlay}
-        />
-        
-        {/* Video Controls Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300">
-          {/* Play/Pause Button */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <button
-              onClick={togglePlay}
-              className="w-16 h-16 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center backdrop-blur-sm transition-all duration-200"
-            >
-              {isPlaying ? (
-                <FiPause className="w-8 h-8 text-white" />
-              ) : (
-                <FiPlay className="w-8 h-8 text-white ml-1" />
-              )}
-            </button>
-          </div>
-
-          {/* Bottom Controls */}
-          <div className="absolute bottom-0 left-0 right-0 p-4">
-            {/* Progress Bar */}
-            <div className="mb-3">
-              <div 
-                className="w-full h-2 bg-white/20 rounded-full cursor-pointer"
-                onClick={handleSeek}
-              >
-                <div
-                  className="h-full bg-red-500 rounded-full transition-all duration-200"
-                  style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }}
-                />
-              </div>
-            </div>
-
-            {/* Control Bar */}
-            <div className="flex items-center justify-between text-white">
-              <div className="flex items-center space-x-4">
-                <button onClick={togglePlay} className="hover:text-red-400 transition-colors">
-                  {isPlaying ? <FiPause className="w-5 h-5" /> : <FiPlay className="w-5 h-5" />}
-                </button>
-                <div className="flex items-center space-x-2">
-                  <FiVolume2 className="w-4 h-4" />
-                  <span className="text-sm">
-                    {formatTime(currentTime)} / {formatTime(duration)}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <button 
-                  onClick={toggleFullscreen}
-                  className="hover:text-red-400 transition-colors"
-                >
-                  <FiExternalLink className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const DownloadCard = ({ 
-  icon: Icon, 
-  title, 
-  description, 
-  onDownload, 
-  onPreview,
-  disabled, 
-  color = 'primary',
-  fileSize,
-  isLoading = false
-}) => {
-  const colorClasses = {
-    primary: 'bg-primary-100 dark:bg-primary-900 text-primary-600 dark:text-primary-400',
-    green: 'bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-400',
-    blue: 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400',
-    purple: 'bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-400'
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      whileHover={{ scale: 1.02 }}
-      className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700"
-    >
-      <div className="flex items-start space-x-4">
-        <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${colorClasses[color]}`}>
-          <Icon className="w-6 h-6" />
-        </div>
-        
-        <div className="flex-1">
-          <div className="flex items-start justify-between mb-2">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              {title}
-            </h3>
-            {/* {fileSize && (
-              <span className="text-sm text-gray-500 dark:text-gray-400 font-mono">
-                {fileSize}
-              </span>
-            )} */}
-          </div>
-          
-          <p className="text-gray-600 dark:text-gray-400 mb-4">
-            {description}
-          </p>
-          
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={onDownload}
-              disabled={disabled || isLoading}
-              className="flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-400 text-white font-medium rounded-lg transition-colors duration-200"
-            >
-              {isLoading ? (
-                <LoadingSpinner size="sm" className="mr-2" />
-              ) : (
-                <FiDownload className="w-4 h-4 mr-2" />
-              )}
-              Download
-            </button>
-            
-            {onPreview && (
-              <button
-                onClick={onPreview}
-                disabled={disabled}
-                className="flex items-center px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white font-medium rounded-lg transition-colors duration-200"
-              >
-                <FiEye className="w-4 h-4 mr-2" />
-                Preview
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    </motion.div>
-  );
-};
-
-const StatsCard = ({ icon: Icon, label, value, subValue, color = 'primary' }) => {
-  const colorClasses = {
-    primary: 'bg-primary-100 dark:bg-primary-900 text-primary-600 dark:text-primary-400',
-    green: 'bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-400',
-    blue: 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400',
-    purple: 'bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-400'
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700"
-    >
-      <div className="flex items-center space-x-3">
-        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${colorClasses[color]}`}>
-          <Icon className="w-5 h-5" />
-        </div>
-        <div>
-          <div className="text-2xl font-bold text-gray-900 dark:text-white">{value}</div>
-          <div className="text-sm text-gray-500 dark:text-gray-400">{label}</div>
-          {subValue && (
-            <div className="text-xs text-gray-400 dark:text-gray-500">{subValue}</div>
-          )}
-        </div>
-      </div>
-    </motion.div>
-  );
-};
-
-const ShareModal = ({ isOpen, onClose, paperId, metadata }) => {
-  const [shareUrl] = useState(`${window.location.origin}/results?paper=${paperId}`);
-  const [copied, setCopied] = useState(false);
-
-  const handleCopyLink = async () => {
-    const success = await copyToClipboard(shareUrl);
-    if (success) {
-      setCopied(true);
-      toast.success('Link copied to clipboard!');
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
-  const handleCopyBibTeX = async () => {
-    const bibtex = `@article{${paperId},
-  title={${metadata.title}},
-  author={${metadata.authors}},
-  year={${new Date(metadata.date).getFullYear()}},
-  note={Generated with Saral AI}
-}`;
-    
-    const success = await copyToClipboard(bibtex);
-    if (success) {
-      toast.success('BibTeX copied to clipboard!');
-    }
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        className="bg-white dark:bg-gray-800 rounded-xl p-6 m-4 w-full max-w-md"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-            Share Presentation
-          </h3>
-          <button
-            onClick={onClose}
-            className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg"
-          >
-            ×
-          </button>
-        </div>
-
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Share Link
-            </label>
-            <div className="flex items-center space-x-2">
-              <input
-                type="text"
-                value={shareUrl}
-                readOnly
-                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-              />
-              <button
-                onClick={handleCopyLink}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
-                  copied
-                    ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
-                    : 'bg-primary-100 text-primary-700 dark:bg-primary-900 dark:text-primary-300'
-                }`}
-              >
-                {copied ? 'Copied!' : 'Copy'}
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <button
-              onClick={handleCopyBibTeX}
-              className="w-full flex items-center justify-center px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-white font-medium rounded-lg transition-colors duration-200"
-            >
-              <FiCopy className="w-4 h-4 mr-2" />
-              Copy BibTeX Citation
-            </button>
-          </div>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-};
-
-const Results = () => {
-  const { 
-    paperId, 
-    metadata, 
-    videoPath, 
-    audioFiles, 
-    slides, 
-    resetWorkflow 
-  } = useWorkflow();
-
-  const [downloadLoading, setDownloadLoading] = useState({});
-  const [showShareModal, setShowShareModal] = useState(false);
-  const [videoStats, setVideoStats] = useState(null);
-  const [projectStats, setProjectStats] = useState({
-    startTime: localStorage.getItem(`project_${paperId}_start`),
-    endTime: new Date().toISOString()
-  });
-
-  useEffect(() => {
-    if (paperId && !projectStats.startTime) {
-      const startTime = new Date().toISOString();
-      localStorage.setItem(`project_${paperId}_start`, startTime);
-      setProjectStats(prev => ({ ...prev, startTime }));
-    }
-  }, [paperId]);
-
-  const handleDownloadWithLoading = async (downloadKey, downloadFn) => {
-    setDownloadLoading(prev => ({ ...prev, [downloadKey]: true }));
-    try {
-      await downloadFn();
-    } finally {
-      setDownloadLoading(prev => ({ ...prev, [downloadKey]: false }));
-    }
-  };
-
-  const handleDownloadVideo = async () => {
-    await handleDownloadWithLoading('video', async () => {
-      const response = await apiService.downloadVideo(paperId);
-      downloadFile(response.data, `presentation_${paperId}.mp4`);
-      toast.success('Video downloaded successfully!');
-    });
-  };
-
-  const handleDownloadSlides = async () => {
-    await handleDownloadWithLoading('slides', async () => {
-      const response = await apiService.downloadSlides(paperId);
-      downloadFile(response.data, `slides_${paperId}.pdf`);
-      toast.success('Slides downloaded successfully!');
-    });
-  };
-
-  const handleDownloadAudio = async (filename) => {
-    await handleDownloadWithLoading(`audio_${filename}`, async () => {
-      const response = await apiService.downloadAudio(paperId, filename);
-      downloadFile(response.data, filename);
-      toast.success('Audio downloaded successfully!');
-    });
-  };
-
-  const handleDownloadAll = async () => {
-    await handleDownloadWithLoading('all', async () => {
-      // Create a zip file with all assets
-      toast.info('Preparing download package...');
-      
-      // Download video
-      const videoResponse = await apiService.downloadVideo(paperId);
-      downloadFile(videoResponse.data, `presentation_${paperId}.mp4`);
-      
-      // Download slides
-      const slidesResponse = await apiService.downloadSlides(paperId);
-      downloadFile(slidesResponse.data, `slides_${paperId}.pdf`);
-      
-      // Download audio files
-      for (const file of audioFiles) {
-        const audioResponse = await apiService.downloadAudio(paperId, file);
-        downloadFile(audioResponse.data, file);
-      }
-      
-      toast.success('All files downloaded successfully!');
-    });
-  };
-
-  const handleStartNew = () => {
-    if (paperId) {
-      localStorage.removeItem(`project_${paperId}_start`);
-    }
-    resetWorkflow();
-    toast.success('Ready for a new project!');
-  };
-
-  const calculateProcessingTime = () => {
-    if (!projectStats.startTime) return null;
-    const start = new Date(projectStats.startTime);
-    const end = new Date(projectStats.endTime);
-    const diffMs = end - start;
-    const diffMins = Math.floor(diffMs / 60000);
-    return diffMins > 0 ? `${diffMins} minutes` : 'Less than a minute';
-  };
-
-  const breadcrumbs = [
-    { label: 'Results', href: '/results' }
-  ];
-
-  if (!paperId) {
-    return (
-      <Layout title="Results" breadcrumbs={breadcrumbs}>
-        <div className="text-center py-12">
-          <FiCheckCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
-            No Results Available
-          </h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">
-            Complete the workflow to see your results here.
-          </p>
-          <Link
-            to="/"
-            className="inline-flex items-center px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors duration-200"
-          >
-            <FiHome className="w-5 h-5 mr-2" />
-            Go to Dashboard
-          </Link>
-        </div>
-      </Layout>
-    );
-  }
-
-  return (
-    <Layout title="" breadcrumbs={breadcrumbs}>
-      <div className="max-w-6xl mx-auto space-y-8">
-        {/* Success Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center"
-        >
-          <div className="mx-auto w-20 h-20 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mb-6">
-            <FiCheckCircle className="w-10 h-10 text-green-600 dark:text-green-400" />
-          </div>
-          <h1 className="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-4">
-            🎉 Presentation Complete!
-          </h1>
-          <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto mb-6">
-            Your academic paper has been successfully converted into a professional presentation video. 
-            Download your files below.
-          </p>
-          
-          {/* Quick Actions */}
-          <div className="flex flex-wrap items-center justify-center gap-4">
-            {/* <button
-              onClick={() => setShowShareModal(true)}
-              className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200"
-            >
-              <FiShare2 className="w-4 h-4 mr-2" />
-              Share
-            </button> */}
-            
-            {/* <button
-              onClick={handleDownloadAll}
-              disabled={downloadLoading.all}
-              className="flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-medium rounded-lg transition-colors duration-200"
-            >
-              {downloadLoading.all ? (
-                <LoadingSpinner size="sm" className="mr-2" />
-              ) : (
-                <FiFolder className="w-4 h-4 mr-2" />
-              )}
-              Download All
-            </button> */}
-          </div>
-        </motion.div>
-
-        {/* Paper Information */}
-        {metadata && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700"
-          >
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-              Paper Information
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Title</label>
-                <p className="text-gray-900 dark:text-white">{metadata.title}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Authors</label>
-                <p className="text-gray-900 dark:text-white">{metadata.authors}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Date</label>
-                <p className="text-gray-900 dark:text-white">{metadata.date}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Paper ID</label>
-                <p className="text-gray-500 dark:text-gray-400 font-mono text-sm">{paperId}</p>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Statistics */}
-        {/* <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatsCard
-            icon={FiVideo}
-            label="Video Generated"
-            value={videoPath ? "1" : "0"}
-            subValue={videoPath ? "Ready for download" : "Not generated"}
-            color="green"
-          />
-          <StatsCard
-            icon={FiImage}
-            label="Slides Created"
-            value={slides ? slides.length : 0}
-            subValue={slides ? `${slides.length} pages` : "Not created"}
-            color="blue"
-          />
-          <StatsCard
-            icon={FiMic}
-            label="Audio Files"
-            value={audioFiles ? audioFiles.length : 0}
-            subValue={audioFiles ? "TTS generated" : "Not generated"}
-            color="purple"
-          />
-          <StatsCard
-            icon={FiClock}
-            label="Processing Time"
-            value={calculateProcessingTime() || "N/A"}
-            subValue="Total duration"
-            color="primary"
-          />
-        </div> */}
-
-        {/* Video Preview */}
-        {videoPath && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700"
-          >
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Video Preview
-            </h3>
-            <VideoPlayer
-              src={apiService.getVideoStreamUrl(paperId)}
-              title="Generated Presentation"
-              paperId={paperId}
-            />
-          </motion.div>
-        )}
-
-        {/* Download Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-        >
-          <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">
-            Download Your Files
-          </h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Video Download */}
-            <DownloadCard
-              icon={FiVideo}
-              title="Final Video"
-              description="Complete presentation video with narration and slides"
-              onDownload={handleDownloadVideo}
-              onPreview={() => document.querySelector('video')?.scrollIntoView()}
-              disabled={!videoPath}
-              color="green"
-              fileSize="~50MB"
-              isLoading={downloadLoading.video}
-            />
-
-            {/* Slides Download */}
-            <DownloadCard
-              icon={FiFileText}
-              title="PDF Slides"
-              description="Presentation slides in PDF format"
-              onDownload={handleDownloadSlides}
-              disabled={!slides || slides.length === 0}
-              color="blue"
-              fileSize="~5MB"
-              isLoading={downloadLoading.slides}
-            />
-          </div>
-        </motion.div>
-
-        {/* Audio Files */}
-        {audioFiles && audioFiles.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700"
-          >
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Individual Audio Files
-            </h3>
-            <div className="space-y-3">
-              {audioFiles.map((file, index) => (
-                <div
-                  key={file}
-                  className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center">
-                      <FiMic className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-white">{file}</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Section {index + 1}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleDownloadAudio(file)}
-                    disabled={downloadLoading[`audio_${file}`]}
-                    className="flex items-center px-3 py-1 text-sm bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white font-medium rounded transition-colors duration-200"
-                  >
-                    {downloadLoading[`audio_${file}`] ? (
-                      <LoadingSpinner size="sm" className="mr-1" />
-                    ) : (
-                      <FiDownload className="w-4 h-4 mr-1" />
-                    )}
-                    Download
-                  </button>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-
-        {/* Actions */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-4"
-        >
-          <button
-            onClick={handleStartNew}
-            className="flex items-center px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors duration-200"
-          >
-            <FiRefreshCw className="w-5 h-5 mr-2" />
-            Start New Project
-          </button>
-          
-          <Link
-            to="/"
-            className="flex items-center px-6 py-3 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white font-medium rounded-lg transition-colors duration-200"
-          >
-            <FiHome className="w-5 h-5 mr-2" />
-            Back to Dashboard
-          </Link>
-        </motion.div>
-
-        {/* Share Modal */}
-        <AnimatePresence>
-          {showShareModal && (
-            <ShareModal
-              isOpen={showShareModal}
-              onClose={() => setShowShareModal(false)}
-              paperId={paperId}
-              metadata={metadata}
-            />
-          )}
-        </AnimatePresence>
-      </div>
-    </Layout>
-  );
-};
-
-export default Results;
+// Results.jsximport React, { useState, useEffect, useRef } from 'react';import { motion } from 'framer-motion';import {  FiDownload, FiVideo, FiFileText, FiMic,  FiRefreshCw, FiCheckCircle, FiHome, FiPlay,  FiPause, FiVolume2, FiExternalLink, FiEye} from 'react-icons/fi';import { Link, useNavigate } from 'react-router-dom';import Layout from '../components/common/Layout';import LoadingSpinner from '../components/common/LoadingSpinner';import { useWorkflow } from '../contexts/WorkflowContext';import { apiService } from '../services/api';import { downloadBlob } from '../utils/helpers';import VideoPlayer from "../components/workflow/VideoPlayer";import toast from 'react-hot-toast';/* ───────────────────────────── Info Row ───────────────────────────── */const Info = ({ label, value }) => (  <div className="mb-4 sm:mb-0">    <label className="text-sm font-sans font-medium text-gray-600 dark:text-gray-400 block mb-1">      {label}    </label>    <p className="text-gray-900 dark:text-gray-100 font-sans break-words text-sm sm:text-base">      {value}    </p>  </div>);/* ───────────────────────────── DownloadCard ───────────────────────────── */const DownloadCard = ({   icon: Icon,   title,   description,   onDownload,   onPreview,   disabled,   isLoading = false }) => (  <motion.div    initial={{ opacity: 0, y: 20 }}    animate={{ opacity: 1, y: 0 }}    className="bg-white dark:bg-neutral-800 rounded-md p-4 sm:p-6 border border-neutral-200 dark:border-neutral-700 shadow-sm"  >    <div className="flex items-start space-x-3 sm:space-x-4">      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gray-100 dark:bg-gray-900 rounded-md flex items-center justify-center flex-shrink-0">        <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-gray-600 dark:text-gray-300" />      </div>      <div className="flex-1 min-w-0">        <h3 className="text-base sm:text-lg font-sans font-semibold text-gray-900 dark:text-gray-100 mb-2">          {title}        </h3>        <p className="text-gray-600 dark:text-gray-400 mb-4 font-sans text-sm">          {description}        </p>        <div className="flex flex-col xs:flex-row gap-2 sm:gap-3">          <button            onClick={onDownload}            disabled={disabled || isLoading}            className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-gray-900 hover:bg-gray-800 disabled:bg-gray-400 text-white font-sans font-medium rounded-md transition-colors duration-150 text-sm sm:text-base"          >            {isLoading ? (              <LoadingSpinner size="sm" />            ) : (              <FiDownload className="w-4 h-4" />            )}            Download          </button>          {onPreview && (            <button              onClick={onPreview}              className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-900 dark:hover:bg-gray-800 text-gray-900 dark:text-gray-100 font-sans font-medium rounded-md transition-colors duration-150 text-sm sm:text-base"            >              <FiEye className="w-4 h-4" />              Preview            </button>          )}        </div>      </div>    </div>  </motion.div>);const SocialShare = ({ paperId, title }) => {  const shareUrl = 'https://saral.democratiseresearch.in';  const shareTitle = title || 'My Academic Presentation';  const shareText = `Check out this presentation I created: "${shareTitle}" using SARAL`;    const encodedText = encodeURIComponent(shareText);  const encodedUrl = encodeURIComponent(shareUrl);  const encodedTitle = encodeURIComponent(shareTitle);    const shareLinks = [    {      name: 'LinkedIn',      icon: FiExternalLink,      url: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`,      className: 'text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300'    },    {      name: 'Twitter',      icon: FiExternalLink,      url: `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`,      className: 'text-sky-500 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300'    },    {      name: 'Facebook',      icon: FiExternalLink,      url: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,      className: 'text-blue-700 hover:text-blue-900 dark:text-blue-500 dark:hover:text-blue-400'    },    {      name: 'Reddit',      icon: FiExternalLink,      url: `https://reddit.com/submit?title=${encodedTitle}&url=${encodedUrl}`,      className: 'text-orange-600 hover:text-orange-800 dark:text-orange-400 dark:hover:text-orange-300'    }  ];  return (    <motion.div       initial={{ opacity: 0, y: 20 }}       animate={{ opacity: 1, y: 0 }}      className="bg-white dark:bg-neutral-800 rounded-md p-4 sm:p-6 border border-neutral-200 dark:border-neutral-700 shadow-sm"    >      <div className="text-center">        <h3 className="text-lg font-sans font-semibold text-gray-900 dark:text-gray-100 mb-2">          Share Your Presentation        </h3>        <p className="text-gray-600 dark:text-gray-400 font-sans text-sm mb-4">          Let others know about your academic presentation        </p>                <div className="flex flex-wrap justify-center gap-3 sm:gap-4">          {shareLinks.map((link) => (            <a              key={link.name}              href={link.url}              target="_blank"              rel="noopener noreferrer"              className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-md border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150 ${link.className} text-sm sm:text-base font-sans font-medium`}              aria-label={`Share on ${link.name}`}            >              <link.icon className="w-4 h-4" />              {link.name}            </a>          ))}        </div>      </div>    </motion.div>  );};/* ───────────────────────────── Results Component ───────────────────────────── */const Results = () => {  const { paperId, metadata, videoPath, audioFiles, slides, resetWorkflow, markStepCompleted, completedSteps } = useWorkflow();  const [loading, setLoading] = useState({});  const navigate = useNavigate();  const withLoad = async (key, fn) => {    setLoading(p => ({ ...p, [key]: true }));    try {       await fn();       toast.success('Download completed successfully!');    } catch (error) {      toast.error('Download failed. Please try again.');    } finally {       setLoading(p => ({ ...p, [key]: false }));     }  };  const dlVideo = () => withLoad('video', async () => {    const { data } = await apiService.downloadVideo(paperId);    downloadBlob(data, `presentation_${paperId}.mp4`);  });  const dlSlides = () => withLoad('slides', async () => {    const { data } = await apiService.downloadSlides(paperId);    downloadBlob(data, `slides_${paperId}.pdf`);  });  const dlAudio = f => withLoad(`aud_${f}`, async () => {    const { data } = await apiService.downloadAudio(paperId, f);    downloadBlob(data, f);  });  useEffect(() => {    if (!completedSteps.includes(6)) {      markStepCompleted(6);    }  }, [markStepCompleted, completedSteps]);  const breadcrumbs = [    { label: 'Results', href: '/results' }  ];  if (!paperId) {    return (      <Layout title="" breadcrumbs={breadcrumbs}>        <div className="text-center py-8 sm:py-12 px-4">          <FiCheckCircle className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400 mx-auto mb-4" />          <h2 className="text-xl sm:text-2xl font-sans font-semibold text-gray-900 dark:text-white mb-2">            No Results Available          </h2>          <p className="text-gray-600 dark:text-gray-400 font-sans mb-6 text-sm sm:text-base">            Complete the workflow to see your results here.          </p>          <Link             to="/"             className="inline-flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 bg-gray-900 hover:bg-gray-800 text-white font-sans font-medium rounded-md transition-colors duration-150 text-sm sm:text-base"          >            <FiHome className="w-4 h-4 sm:w-5 sm:h-5" />            Go to Dashboard          </Link>        </div>      </Layout>    );  }  return (    <Layout title="" breadcrumbs={breadcrumbs}>      <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8 px-4 sm:px-6 lg:px-0">        {/* Header */}        <motion.div           initial={{ opacity: 0, y: 20 }}           animate={{ opacity: 1, y: 0 }}           className="text-center"        >          <div className="mx-auto w-12 h-12 sm:w-16 sm:h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4 sm:mb-6">            <FiCheckCircle className="w-6 h-6 sm:w-8 sm:h-8 text-gray-600 dark:text-gray-300" />          </div>          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-sans font-bold text-gray-900 dark:text-white mb-3 sm:mb-4">            🎉 Presentation Complete!          </h1>          <p className="text-base sm:text-lg text-gray-600 dark:text-gray-400 font-sans max-w-2xl mx-auto px-4">            Your academic paper has been transformed into a professional presentation.          </p>        </motion.div>        {/* Metadata */}        {metadata && (          <motion.div             initial={{ opacity: 0, y: 20 }}             animate={{ opacity: 1, y: 0 }}             className="bg-white dark:bg-neutral-800 rounded-md p-4 sm:p-6 border border-neutral-200 dark:border-neutral-700 shadow-sm"          >            <h2 className="text-lg sm:text-xl font-sans font-semibold text-gray-900 dark:text-gray-100 mb-4">              Paper Information            </h2>            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">              <Info label="Title" value={metadata.title} />              <Info label="Authors" value={metadata.authors} />              <Info label="Date" value={metadata.date} />              <Info label="Paper ID" value={<span className="font-mono text-xs sm:text-sm break-all">{paperId}</span>} />            </div>          </motion.div>        )}        {/* Video Preview */}        {videoPath && (          <motion.div             initial={{ opacity: 0, y: 20 }}             animate={{ opacity: 1, y: 0 }}             className="bg-white dark:bg-gray-900 rounded-md p-3 sm:p-6 border border-neutral-200 dark:border-neutral-700 shadow-sm"          >            <div className="aspect-video bg-gray-100 dark:bg-gray-700 rounded-md overflow-hidden">              <VideoPlayer                 src={apiService.getVideoStreamUrl(paperId)}                 title="Generated Presentation"                paperId={paperId}              />            </div>          </motion.div>        )}        {/* Downloads */}        <motion.div           initial={{ opacity: 0, y: 20 }}           animate={{ opacity: 1, y: 0 }}          className="space-y-4 sm:space-y-6"        >          <h2 className="text-xl sm:text-2xl font-sans font-semibold text-gray-900 dark:text-white">            Download Your Files          </h2>                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">            <DownloadCard               icon={FiVideo}               title="Final Video"               description="Presentation video with narration and slides"               onDownload={dlVideo}               onPreview={() => document.querySelector('video')?.scrollIntoView({ behavior: 'smooth' })}               disabled={!videoPath}               isLoading={loading.video}             />                        <DownloadCard               icon={FiFileText}               title="PDF Slides"               description="Presentation slides in PDF format"               onDownload={dlSlides}               onPreview={ () => navigate('/slide-creation') }              disabled={!slides?.length}               isLoading={loading.slides}             />          </div>        </motion.div>        {/* Audio Files */}        {audioFiles?.length > 0 && (          <motion.div             initial={{ opacity: 0, y: 20 }}             animate={{ opacity: 1, y: 0 }}             className="bg-white dark:bg-neutral-800 rounded-md p-4 sm:p-6 border border-neutral-200 dark:border-neutral-700 shadow-sm"          >            <h3 className="text-lg font-sans font-semibold text-gray-900 dark:text-gray-100 mb-4">              Individual Audio Files            </h3>            <div className="space-y-3">              {audioFiles.map((f, i) => (                <div key={f} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 sm:p-4 bg-gray-50 dark:border-b dark:bg-neutral-800 rounded-md gap-3 sm:gap-4">                  <div className="flex items-center space-x-3 min-w-0 flex-1">                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-200 dark:bg-neutral-800 rounded-md flex items-center justify-center flex-shrink-0">                      <FiMic className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600 dark:text-gray-300" />                    </div>                    <div className="min-w-0 flex-1">                      <p className="font-sans font-medium text-gray-900 dark:text-gray-100 truncate text-sm sm:text-base">                        {f}                      </p>                      <p className="text-xs sm:text-sm font-sans text-gray-600 dark:text-gray-400">                        Section {i + 1}                      </p>                    </div>                  </div>                  <button                    onClick={() => dlAudio(f)}                    disabled={loading[`aud_${f}`]}                    className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-gray-900 hover:bg-gray-800 disabled:bg-gray-400 text-white font-sans font-medium rounded-md transition-colors duration-150 text-sm sm:text-base w-full sm:w-auto"                  >                    {loading[`aud_${f}`] ? (                      <LoadingSpinner size="sm" />                    ) : (                      <FiDownload className="w-4 h-4" />                    )}                    Download                  </button>                </div>              ))}            </div>          </motion.div>        )}        <SocialShare paperId={paperId} title={metadata?.title} />        {/* Action Buttons */}        <motion.div           initial={{ opacity: 0, y: 20 }}           animate={{ opacity: 1, y: 0 }}           className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 pb-6 sm:pb-8"        >          <button             onClick={resetWorkflow}             className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 sm:px-6 py-2 sm:py-3 bg-gray-900 hover:bg-gray-800 text-white font-sans font-medium rounded-md transition-colors duration-150 text-sm sm:text-base"          >            <FiRefreshCw className="w-4 h-4 sm:w-5 sm:h-5" />            Start New Paper          </button>                    <Link             to="/"             className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 sm:px-6 py-2 sm:py-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-900 dark:hover:bg-gray-800 text-gray-900 dark:text-gray-100 font-sans font-medium rounded-md transition-colors duration-150 text-sm sm:text-base"          >            <FiHome className="w-4 h-4 sm:w-5 sm:h-5" />            Back to Dashboard          </Link>        </motion.div>      </div>    </Layout>  );};export default Results;

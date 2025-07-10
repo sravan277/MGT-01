@@ -1,382 +1,272 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { 
-  FiPlay, FiUpload, FiKey, FiEdit3, FiSliders, 
-  FiDownload, FiClock, FiCheck, FiArrowRight,
-  FiFileText, FiVideo, FiMic, FiImage
+  FiPlus, FiFile, FiClock, FiCheck, FiArrowRight, 
+  FiDownload, FiPlay, FiTrash2, FiEdit3 
 } from 'react-icons/fi';
 import Layout from '../components/common/Layout';
 import { useWorkflow } from '../contexts/WorkflowContext';
 import { apiService } from '../services/api';
+import toast from 'react-hot-toast';
 
-const StepCard = ({ step, icon: Icon, title, description, isCompleted, isCurrent, isAccessible, to, onClick }) => {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: step * 0.1 }}
-      className={`p-6 rounded-xl border-2 transition-all duration-200 cursor-pointer ${
-        isCurrent
-          ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-          : isCompleted
-          ? 'border-green-500 bg-green-50 dark:bg-green-900/20 hover:border-green-600 dark:hover:border-green-400'
-          : isAccessible
-          ? 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600'
-          : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 opacity-60 cursor-not-allowed'
-      }`}
-      onClick={isAccessible ? onClick : undefined}
-      whileHover={isAccessible ? { scale: 1.02 } : undefined}
-      whileTap={isAccessible ? { scale: 0.98 } : undefined}
-    >
-      <div className="flex items-start justify-between mb-4">
-        <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
-          isCompleted
-            ? 'bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-400'
-            : isCurrent
-            ? 'bg-primary-100 dark:bg-primary-900 text-primary-600 dark:text-primary-400'
-            : isAccessible
-            ? 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-            : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600'
-        }`}>
-          {isCompleted ? <FiCheck className="w-6 h-6" /> : <Icon className="w-6 h-6" />}
-        </div>
-        
-        <div className={`text-sm font-medium px-2 py-1 rounded ${
-          isCompleted
-            ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300'
-            : isCurrent
-            ? 'bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300'
-            : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-        }`}>
-          Step {step}
-        </div>
-      </div>
-      
-      <h3 className={`text-lg font-semibold mb-2 ${
-        isAccessible ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-500'
-      }`}>
-        {title}
-      </h3>
-      
-      <p className={`text-sm mb-4 ${
-        isAccessible ? 'text-gray-600 dark:text-gray-400' : 'text-gray-500 dark:text-gray-500'
-      }`}>
-        {description}
-      </p>
-      
-      {isAccessible && (
-        <div className={`inline-flex items-center text-sm font-medium transition-colors duration-200 ${
-          isCurrent
-            ? 'text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300'
-            : isCompleted
-            ? 'text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300'
-            : 'text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-        }`}>
-          {isCompleted ? 'Review' : isCurrent ? 'Continue' : 'Start'}
-          <FiArrowRight className="w-4 h-4 ml-1" />
-        </div>
-      )}
-    </motion.div>
-  );
-};
+const ProjectCard = ({ project, onDelete, delay = 0 }) => {
+  const getStatusIcon = (status) => {
+    switch (status) {
+    case 'completed': return <FiCheck className="w-4 h-4 text-green-500" />;
+    case 'processing': return <FiClock className="w-4 h-4 text-orange-500" />;
+    default: return <FiFile className="w-4 h-4 text-neutral-400" />;
+    }
+  };
 
-const StatsCard = ({ icon: Icon, title, value, subtitle, color = 'primary' }) => {
-  const colorClasses = {
-    primary: 'bg-primary-100 dark:bg-primary-900 text-primary-600 dark:text-primary-400',
-    green: 'bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-400',
-    blue: 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400',
-    purple: 'bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-400'
+  const getStatusText = (status) => {
+    switch (status) {
+    case 'completed': return 'Completed';
+    case 'processing': return 'In Progress';
+    default: return 'Draft';
+    }
   };
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700"
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.15, delay }}
+      className="card p-6 hover:shadow-lg transition-shadow duration-150"
     >
-      <div className="flex items-center">
-        <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${colorClasses[color]}`}>
-          <Icon className="w-6 h-6" />
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-neutral-900 dark:text-white truncate mb-1">
+            {project.title || 'Untitled Project'}
+          </h3>
+          <p className="text-sm text-neutral-500 dark:text-neutral-400 truncate">
+            {project.authors || 'No authors specified'}
+          </p>
         </div>
-        <div className="ml-4">
-          <div className="text-2xl font-bold text-gray-900 dark:text-white">{value}</div>
-          <div className="text-sm font-medium text-gray-900 dark:text-white">{title}</div>
-          {subtitle && <div className="text-xs text-gray-500 dark:text-gray-400">{subtitle}</div>}
+        
+        <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+          <div className="flex items-center gap-1.5 px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded-full">
+            {getStatusIcon(project.status)}
+            <span className="text-xs font-medium text-neutral-600 dark:text-neutral-300">
+              {getStatusText(project.status)}
+            </span>
+          </div>
+          
+          <button
+            onClick={() => onDelete(project.id)}
+            className="p-1.5 text-neutral-400 hover:text-red-500 rounded transition-colors duration-150"
+          >
+            <FiTrash2 className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <div className="text-sm text-neutral-600 dark:text-neutral-400">
+          <p>Created: {new Date(project.created_at).toLocaleDateString()}</p>
+          {project.last_modified && (
+            <p>Modified: {new Date(project.last_modified).toLocaleDateString()}</p>
+            )}
+        </div>
+
+        <div className="flex items-center justify-between pt-3 border-t border-neutral-200 dark:border-neutral-700">
+          <div className="flex items-center gap-2">
+            {project.status === 'completed' && (
+              <>
+              <button className="p-2 text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 rounded transition-colors duration-150">
+                <FiDownload className="w-4 h-4" />
+              </button>
+              <button className="p-2 text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 rounded transition-colors duration-150">
+                <FiPlay className="w-4 h-4" />
+              </button>
+              </>
+              )}
+          </div>
+          
+          <Link
+            to={`/paper-processing?project=${project.id}`}
+            className="inline-flex items-center gap-2 text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors duration-150"
+          >
+            {project.status === 'completed' ? 'View' : 'Continue'}
+            <FiArrowRight className="w-4 h-4" />
+          </Link>
         </div>
       </div>
     </motion.div>
-  );
+    );
 };
 
+const EmptyState = () => (
+  <motion.div
+    initial={{ opacity: 0, y: 6 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.15 }}
+    className="text-center py-16"
+  >
+    <div className="w-16 h-16 bg-neutral-100 dark:bg-neutral-800 rounded-2xl flex items-center justify-center mx-auto mb-4">
+      <FiFile className="w-8 h-8 text-neutral-400" />
+    </div>
+    <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-2">
+      No projects yet
+    </h3>
+    <p className="text-neutral-600 dark:text-neutral-400 mb-6 max-w-md mx-auto">
+      Create your first project by uploading a research paper or importing from arXiv.
+    </p>
+    <Link to="/paper-processing" className="btn-primary">
+    <FiPlus className="w-4 h-4 mr-2" />
+    Create Project
+  </Link>
+</motion.div>
+);
+
 const Dashboard = () => {
-  const { currentStep, paperId, metadata, setStep } = useWorkflow();
-  const [apiStatus, setApiStatus] = useState({});
+  const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
-  // Persistent storage for tracking highest step reached
-  const [highestStepReached, setHighestStepReached] = useState(() => {
-    const saved = localStorage.getItem('dashboard_highest_step');
-    return saved ? Math.max(parseInt(saved), currentStep) : currentStep;
-  });
-
-  // Update highest step reached when currentStep changes
-  useEffect(() => {
-    if (currentStep > highestStepReached) {
-      setHighestStepReached(currentStep);
-      localStorage.setItem('dashboard_highest_step', currentStep.toString());
-    }
-  }, [currentStep, highestStepReached]);
-
-  // Sync with any external changes to localStorage
-  useEffect(() => {
-    const handleStorageChange = () => {
-      const saved = localStorage.getItem('dashboard_highest_step');
-      if (saved) {
-        const savedStep = parseInt(saved);
-        setHighestStepReached(Math.max(savedStep, currentStep));
-      }
-    };
-    
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, [currentStep]);
+  const { resetWorkflow } = useWorkflow();
 
   useEffect(() => {
-    checkApiStatus();
+    loadProjects();
   }, []);
 
-  const checkApiStatus = async () => {
+  const loadProjects = async () => {
     try {
-      const response = await apiService.getApiKeysStatus();
-      setApiStatus(response.data);
+      // const response = await apiService.getProjects();
+      // setProjects(response.data);
+      
+      // Mock data for now
+      setProjects([
+        {
+          id: '1',
+          title: 'Deep Learning for Computer Vision',
+          authors: 'John Doe, Jane Smith',
+          status: 'completed',
+          created_at: new Date(Date.now() - 86400000 * 7),
+          last_modified: new Date(Date.now() - 86400000 * 2)
+        },
+        {
+          id: '2', 
+          title: 'Natural Language Processing Applications',
+          authors: 'Alice Johnson',
+          status: 'processing',
+          created_at: new Date(Date.now() - 86400000 * 3),
+          last_modified: new Date(Date.now() - 86400000)
+        }
+      ]);
     } catch (error) {
-      console.error('Error checking API status:', error);
+      console.error('Error loading projects:', error);
+      toast.error('Failed to load projects');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleStepClick = (stepId) => {
-    setStep(stepId);
-  };
-
-  // Calculate stats based on persistent highest step reached
-  const getStepStats = () => {
-    return {
-      papersProcessed: paperId ? 1 : 0,
-      scriptsGenerated: highestStepReached >= 3 ? 1 : 0,
-      slidesCreated: highestStepReached >= 4 ? 1 : 0,
-      videosGenerated: highestStepReached >= 6 ? 1 : 0,
-      completedSteps: Math.max(0, highestStepReached - 1)
-    };
-  };
-
-  const steps = [
-    {
-      id: 1,
-      icon: FiKey,
-      title: 'API Setup',
-      description: 'Configure your API keys for Gemini, Sarvam, and OpenAI services',
-      to: '/api-setup'
-    },
-    {
-      id: 2,
-      icon: FiUpload,
-      title: 'Paper Upload',
-      description: 'Upload your LaTeX files or import directly from arXiv',
-      to: '/paper-processing'
-    },
-    {
-      id: 3,
-      icon: FiEdit3,
-      title: 'Script Generation',
-      description: 'Generate and customize presentation scripts for your paper',
-      to: '/script-generation'
-    },
-    {
-      id: 4,
-      icon: FiSliders,
-      title: 'Slide Creation',
-      description: 'Create beautiful presentation slides from your content',
-      to: '/slide-creation'
-    },
-    {
-      id: 5,
-      icon: FiPlay,
-      title: 'Media Generation',
-      description: 'Generate audio narration and combine with slides',
-      to: '/media-generation'
-    },
-    {
-      id: 6,
-      icon: FiDownload,
-      title: 'Results',
-      description: 'Download your final presentation video and slides',
-      to: '/results'
+  const handleDeleteProject = async (projectId) => {
+    if (!window.confirm('Are you sure you want to delete this project?')) return;
+    
+    try {
+      // await apiService.deleteProject(projectId);
+      setProjects(prev => prev.filter(p => p.id !== projectId));
+      toast.success('Project deleted successfully');
+    } catch (error) {
+      toast.error('Failed to delete project');
     }
-  ];
+  };
 
-  const stats = getStepStats();
-
-  if (loading) {
-    return (
-      <Layout title="Dashboard">
-        <div className="animate-pulse space-y-8">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="bg-gray-200 dark:bg-gray-700 h-32 rounded-xl"></div>
-            ))}
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="bg-gray-200 dark:bg-gray-700 h-48 rounded-xl"></div>
-            ))}
-          </div>
-        </div>
-      </Layout>
-    );
-  }
+  const handleNewProject = () => {
+    resetWorkflow();
+  };
 
   return (
     <Layout title="Dashboard">
-      <div className="space-y-8">
-        {/* Welcome section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center"
-        >
-          <h1 className="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-4">
-            Welcome to Saral AI
-          </h1>
-          <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-            Transform your academic papers into engaging presentation videos with AI-powered script generation, 
-            professional slides, and natural voice narration.
-          </p>
-        </motion.div>
-
-        {/* Stats overview */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatsCard
-            icon={FiFileText}
-            title="Papers Processed"
-            value={stats.papersProcessed.toString()}
-            subtitle="Ready for conversion"
-            color="primary"
-          />
-          <StatsCard
-            icon={FiEdit3}
-            title="Scripts Generated"
-            value={stats.scriptsGenerated.toString()}
-            subtitle="AI-powered content"
-            color="green"
-          />
-          <StatsCard
-            icon={FiImage}
-            title="Slides Created"
-            value={stats.slidesCreated.toString()}
-            subtitle="Professional presentation"
-            color="blue"
-          />
-          <StatsCard
-            icon={FiVideo}
-            title="Videos Generated"
-            value={stats.videosGenerated.toString()}
-            subtitle="Final output ready"
-            color="purple"
-          />
-        </div>
-
-        {/* Current paper info */}
-        {paperId && metadata && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700"
-          >
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-              Current Paper
-            </h2>
-            <div className="space-y-2">
-              <div>
-                <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Title:</span>
-                <p className="text-gray-900 dark:text-white">{metadata.title}</p>
-              </div>
-              <div>
-                <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Authors:</span>
-                <p className="text-gray-900 dark:text-white">{metadata.authors}</p>
-              </div>
-              <div>
-                <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Paper ID:</span>
-                <p className="text-gray-500 dark:text-gray-400 font-mono text-sm">{paperId}</p>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Workflow steps */}
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-            Workflow Steps
-          </h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {steps.map((step) => {
-              // Updated logic using persistent highest step reached
-              const isCompleted = highestStepReached > step.id;
-              const isCurrent = currentStep === step.id;
-              // Step is accessible if it's step 1, current step, or has been reached before
-              const isAccessible = step.id === 1 || step.id <= highestStepReached;
-
-              return (
-                <StepCard
-                  key={step.id}
-                  step={step.id}
-                  icon={step.icon}
-                  title={step.title}
-                  description={step.description}
-                  isCompleted={isCompleted}
-                  isCurrent={isCurrent}
-                  isAccessible={isAccessible}
-                  to={step.to}
-                  onClick={() => handleStepClick(step.id)}
-                />
-              );
-            })}
+      <div className="max-w-6xl mx-auto space-y-8">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold text-neutral-900 dark:text-white">
+              Your Projects
+            </h1>
+            <p className="text-neutral-600 dark:text-neutral-400 mt-1">
+              Manage your research paper video projects
+            </p>
           </div>
+          
+          <Link
+            to="/paper-processing"
+            onClick={handleNewProject}
+            className="btn-primary"
+          >
+            <FiPlus className="w-4 h-4 mr-2" />
+            New Project
+          </Link>
         </div>
 
-        {/* API Status indicator */}
-        {!apiStatus.gemini_configured && !apiStatus.sarvam_configured && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-6"
-          >
-            <div className="flex items-start space-x-3">
-              <FiClock className="w-6 h-6 text-yellow-600 dark:text-yellow-400 mt-1" />
-              <div>
-                <h3 className="text-lg font-semibold text-yellow-800 dark:text-yellow-200">
-                  API Setup Required
-                </h3>
-                <p className="text-yellow-700 dark:text-yellow-300 mb-4">
-                  Please configure your API keys to start using Saral AI. You'll need keys for Gemini and Sarvam APIs.
-                </p>
-                <Link
-                  to="/api-setup"
-                  className="inline-flex items-center px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white font-medium rounded-lg transition-colors duration-200"
-                  onClick={() => handleStepClick(1)}
-                >
-                  <FiKey className="w-4 h-4 mr-2" />
-                  Configure API Keys
-                </Link>
+        {/* Projects Grid */}
+        {loading ? (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="card p-6 animate-pulse">
+                <div className="h-4 bg-neutral-200 dark:bg-neutral-700 rounded mb-3" />
+                <div className="h-3 bg-neutral-200 dark:bg-neutral-700 rounded mb-4 w-2/3" />
+                <div className="h-3 bg-neutral-200 dark:bg-neutral-700 rounded mb-2" />
+                <div className="h-3 bg-neutral-200 dark:bg-neutral-700 rounded w-1/2" />
               </div>
-            </div>
-          </motion.div>
-        )}
-      </div>
-    </Layout>
-  );
+              ))}
+          </div>
+          ) : projects.length === 0 ? (
+          <EmptyState />
+          ) : (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {projects.map((project, index) => (
+              <ProjectCard
+                key={project.id}
+                project={project}
+                onDelete={handleDeleteProject}
+                delay={index * 0.05}
+                />
+                ))}
+          </div>
+          )}
+
+        {/* Quick Stats */}
+          {projects.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.15, delay: 0.2 }}
+              className="grid grid-cols-2 md:grid-cols-4 gap-4"
+            >
+              <div className="card p-4 text-center">
+                <div className="text-2xl font-bold text-neutral-900 dark:text-white">
+                  {projects.length}
+                </div>
+                <div className="text-sm text-neutral-500 dark:text-neutral-400">Total Projects</div>
+              </div>
+              
+              <div className="card p-4 text-center">
+                <div className="text-2xl font-bold text-green-600">
+                  {projects.filter(p => p.status === 'completed').length}
+                </div>
+                <div className="text-sm text-neutral-500 dark:text-neutral-400">Completed</div>
+              </div>
+              
+              <div className="card p-4 text-center">
+                <div className="text-2xl font-bold text-orange-600">
+                  {projects.filter(p => p.status === 'processing').length}
+                </div>
+                <div className="text-sm text-neutral-500 dark:text-neutral-400">In Progress</div>
+              </div>
+              
+              <div className="card p-4 text-center">
+                <div className="text-2xl font-bold text-neutral-600 dark:text-neutral-400">
+                  {projects.filter(p => p.status === 'draft').length}
+                </div>
+                <div className="text-sm text-neutral-500 dark:text-neutral-400">Drafts</div>
+              </div>
+            </motion.div>
+            )}
+        </div>
+      </Layout>
+      );
 };
 
 export default Dashboard;

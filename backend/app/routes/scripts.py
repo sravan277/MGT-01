@@ -13,6 +13,7 @@ from app.services.script_generator import (
     extract_text_from_file,
     clean_text,
     generate_bullet_points_with_gemini,
+    generate_all_bullet_points_with_gemini,
     extract_paper_metadata
 )
 from app.routes.papers import papers_storage
@@ -131,20 +132,25 @@ async def generate_script(paper_id: str, api_keys: dict = Depends(get_api_keys))
         # Split into sections
         sections_scripts = split_script_into_sections(full_script)
         
-        # Clean each section for TTS and generate bullet points
-        sections_with_bullets = {}
+        # Clean each section for TTS
+        cleaned_sections = {}
         for section_name, script_text in sections_scripts.items():
-            cleaned_script = clean_script_for_tts_and_video(script_text)
-            
-            # Generate bullet points for this section
-            bullet_points = generate_bullet_points_with_gemini(
-                api_keys["gemini_key"],
-                cleaned_script
-            )
-            
+            cleaned_sections[section_name] = clean_script_for_tts_and_video(script_text)
+        
+        # Generate bullet points for all sections with a single prompt
+        logger.info(f"Generating bullet points for all sections using single prompt")
+        all_bullet_points = generate_all_bullet_points_with_gemini(
+            api_keys["gemini_key"],
+            cleaned_sections
+        )
+        logger.info(f"Generated bullet points for {len(all_bullet_points)} sections")
+        
+        # Combine cleaned scripts with bullet points
+        sections_with_bullets = {}
+        for section_name in cleaned_sections.keys():
             sections_with_bullets[section_name] = {
-                "script": cleaned_script,
-                "bullet_points": bullet_points,
+                "script": cleaned_sections[section_name],
+                "bullet_points": all_bullet_points.get(section_name, ["Key information from this section"]),
                 "assigned_image": None
             }
         

@@ -1,14 +1,14 @@
 export const API_ENDPOINTS = {
-  KEYS: '/keys',
+  AUTH: '/auth',
   PAPERS: '/papers',
   SCRIPTS: '/scripts',
   SLIDES: '/slides',
   MEDIA: '/media',
-  IMAGES: '/images'
+  IMAGES: '/images',
+  API_KEYS: '/api-keys'
 };
 
 export const WORKFLOW_STEPS = {
-  DASHBOARD: 0,
   API_SETUP: 1,
   PAPER_PROCESSING: 2,
   SCRIPT_GENERATION: 3,
@@ -17,46 +17,128 @@ export const WORKFLOW_STEPS = {
   RESULTS: 6
 };
 
-export const SUPPORTED_FILE_TYPES = {
-  ZIP: 'application/zip',
-  PDF: 'application/pdf',
-  TEX: 'text/plain'
+export const STEP_ROUTES = {
+  [WORKFLOW_STEPS.API_SETUP]: '/api-setup',
+  [WORKFLOW_STEPS.PAPER_PROCESSING]: '/paper-processing',
+  [WORKFLOW_STEPS.SCRIPT_GENERATION]: '/script-generation',
+  [WORKFLOW_STEPS.SLIDE_CREATION]: '/slide-creation',
+  [WORKFLOW_STEPS.MEDIA_GENERATION]: '/media-generation',
+  [WORKFLOW_STEPS.RESULTS]: '/results'
 };
 
-export const PAGINATION_CONFIG = {
-  DEFAULT_PAGE_SIZE: 10,
-  PAGE_SIZE_OPTIONS: [5, 10, 20, 50],
-  MAX_VISIBLE_PAGES: 7
+export const FILE_TYPES = {
+  PDF: 'pdf',
+  ZIP: 'zip',
+  IMAGE: 'image',
+  VIDEO: 'video',
+  AUDIO: 'audio'
+};
+
+export const SUPPORTED_IMAGE_TYPES = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'];
+export const SUPPORTED_VIDEO_TYPES = ['mp4', 'webm', 'ogg', 'avi', 'mov'];
+export const SUPPORTED_AUDIO_TYPES = ['mp3', 'wav', 'ogg', 'aac', 'm4a'];
+
+export const VOICE_SETTINGS = {
+  LANGUAGES: [
+    { value: 'english', label: 'English' },
+    { value: 'hindi', label: 'Hindi' }
+  ],
+  VOICES: [
+    { value: 'female', label: 'Female' },
+    { value: 'male', label: 'Male' }
+  ],
+  SPEED_RANGE: { min: 0.5, max: 2.0, step: 0.1, default: 1.0 }
 };
 
 export const THEME_CONFIG = {
-  LIGHT: 'light',
-  DARK: 'dark',
-  SYSTEM: 'system'
+  STORAGE_KEY: 'saral-theme',
+  DEFAULT_THEME: 'system'
 };
 
-export const TTS_VOICES = {
-  ENGLISH: {
-    meera: 'Meera (Female)',
-    arjun: 'Arjun (Male)'
+export const LOCAL_STORAGE_KEYS = {
+  THEME: 'saral-theme',
+  API_KEYS: 'saral-api-keys',
+  WORKFLOW_STATE: 'saral-workflow',
+  USER_PREFERENCES: 'saral-preferences'
+};
+
+export const STATUS_TYPES = {
+  IDLE: 'idle',
+  LOADING: 'loading',
+  SUCCESS: 'success',
+  ERROR: 'error'
+};
+
+export const PROJECT_STATUS = {
+  DRAFT: 'draft',
+  PROCESSING: 'processing',
+  COMPLETED: 'completed',
+  ERROR: 'error'
+};
+
+export const ANIMATION_VARIANTS = {
+  fadeIn: {
+    initial: { opacity: 0 },
+    animate: { opacity: 1 },
+    exit: { opacity: 0 },
+    transition: { duration: 0.15 }
   },
-  HINDI: {
-    amol: 'Amol (Male)',
-    mira: 'Mira (Female)'
+  slideUp: {
+    initial: { opacity: 0, y: 6 },
+    animate: { opacity: 1, y: 0 },
+    exit: { opacity: 0, y: -6 },
+    transition: { duration: 0.15 }
+  },
+  slideIn: {
+    initial: { opacity: 0, x: -20 },
+    animate: { opacity: 1, x: 0 },
+    exit: { opacity: 0, x: 20 },
+    transition: { duration: 0.15 }
   }
 };
-
-export const SCRIPT_SECTIONS = [
-  'Introduction',
-  'Methodology', 
-  'Results',
-  'Discussion',
-  'Conclusion'
-];
-
-export const VIDEO_CONFIG = {
-  DEFAULT_DPI: 300,
-  SUPPORTED_FORMATS: ['mp4', 'avi', 'mov'],
-  MAX_FILE_SIZE: 100 * 1024 * 1024, // 100MB
-  DEFAULT_FPS: 1
+export const TTS_VOICES = {
+  ENGLISH: {
+    vidya: 'Female',
+    karun: 'Male'
+  },
+  HINDI: {
+    vidya: 'Female',
+    karun: 'Male'
+  },
+  BENGALI: {
+    vidya: 'Female',
+    karun: 'Male'
+  },
+  GUJARATI: {
+    vidya: 'Female',
+    karun: 'Male'
+  },
+  KANNADA: {
+    vidya: 'Female',
+    karun: 'Male'
+  },
+  MALAYALAM: {
+    vidya: 'Female',
+    karun: 'Male'
+  },
+  MARATHI: {
+    vidya: 'Female',
+    karun: 'Male'
+  },
+  ODIA: {
+    vidya: 'Female',
+    karun: 'Male'
+  },
+  PUNJABI: {
+    vidya: 'Female',
+    karun: 'Male'
+  },
+  TAMIL: {
+    vidya: 'Female',
+    karun: 'Male'
+  },
+  TELUGU: {
+    vidya: 'Female',
+    karun: 'Male'
+  }
 };

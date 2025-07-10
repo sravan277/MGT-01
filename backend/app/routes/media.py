@@ -9,9 +9,10 @@ from app.routes.papers import papers_storage
 from app.routes.scripts import scripts_storage
 from app.routes.slides import slides_storage
 from app.routes.api_keys import get_api_keys
-from app.services.tts_service import ensure_audio_is_generated, ensure_hindi_audio_is_generated
+from app.services.tts_service import ensure_audio_is_generated, ensure_hindi_audio_is_generated, ensure_language_audio_is_generated
 from app.services.video_service import create_video_with_audio
 from app.services.hindi_service import generate_hindi_script_with_google
+from app.services.language_service import translate_to_language
 
 router = APIRouter()
 
@@ -24,6 +25,7 @@ async def generate_audio(
     request: AudioGenerationRequest,
     api_keys: dict = Depends(get_api_keys)
 ):
+    print(f"using voice selection:, {request.voice_selection}")
     print(f"Generating audio for paper ID: {paper_id}")
     if paper_id not in scripts_storage:
         scripts_file = f"temp/scripts/{paper_id}_scripts.json"
@@ -63,9 +65,21 @@ async def generate_audio(
             title_intro_script = title_intro_hindi
             sections_scripts = hindi_sections_scripts
             language = "Hindi"
-        else:
+        elif request.selected_language == "English":
             title_intro_script = scripts_info.get("title_intro_script", "")
             language = "English"
+        else:
+            print(f"Translating to {request.selected_language}")
+            title_intro_script = translate_to_language(
+                scripts_info.get("title_intro_script", ""),
+                request.selected_language,
+                api_keys.get("sarvam_key")
+            )
+            sections_scripts = {
+                name: translate_to_language(script, request.selected_language, api_keys.get("sarvam_key"))
+                for name, script in sections_scripts.items()
+            }
+            language = request.selected_language
         print(f"Title intro script: {title_intro_script}")
         
         if language == "Hindi":
@@ -79,7 +93,7 @@ async def generate_audio(
                 openai_api_key=api_keys.get("openai_key"),
                 show_hindi_debug=request.show_hindi_debug
             )
-        else:
+        elif language == "English":
             audio_response = ensure_audio_is_generated(
                 sarvam_api_key=api_keys.get("sarvam_key"),
                 language=language,
@@ -90,6 +104,17 @@ async def generate_audio(
                 hinglish_iterations=request.hinglish_iterations,
                 openai_api_key=api_keys.get("openai_key"),
                 show_hindi_debug=request.show_hindi_debug
+            )
+        else:
+            audio_response = ensure_language_audio_is_generated(
+                sarvam_api_key=api_keys.get("sarvam_key"),
+                language=language,
+                paper_id=paper_id,
+                title_intro_script=title_intro_script,
+                sections_scripts=sections_scripts,
+                voice_selections=request.voice_selection,
+                hinglish_iterations=request.hinglish_iterations,
+                openai_api_key=api_keys.get("openai_key")
             )
 
         audio_files = audio_response["audio_files"]

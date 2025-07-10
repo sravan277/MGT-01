@@ -1,95 +1,70 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { FiArrowRight } from 'react-icons/fi';
 import Layout from '../components/common/Layout';
 import PaperUpload from '../components/forms/PaperUpload';
 import MetadataEditor from '../components/forms/MetadataEditor';
 import { useWorkflow } from '../contexts/WorkflowContext';
+import { FiUpload, FiEdit3 } from 'react-icons/fi';
 
 const PaperProcessing = () => {
-  const { paperId, metadata, progressToNextStep } = useWorkflow();
-
+  const { paperId, metadata } = useWorkflow();
+  
   const breadcrumbs = [
     { label: 'Paper Processing', href: '/paper-processing' }
   ];
 
-  const handleContinueToScripts = () => {
-    // Use progressToNextStep for auto-navigation
-    progressToNextStep();
-  };
-
   return (
     <Layout title="" breadcrumbs={breadcrumbs}>
-      <div className="max-w-4xl mx-auto space-y-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center"
-        >
-          <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
-            Upload Your Academic Paper
-          </h2>
-          <p className="text-gray-600 dark:text-gray-400">
-            Upload your LaTeX source files, PDF, or import directly from arXiv to get started.
-          </p>
-        </motion.div>
-
+      <motion.div
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.15 }}
+        className="max-w-4xl mx-auto space-y-6"
+      >
         {!paperId ? (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 lg:p-8 border border-gray-200 dark:border-gray-700"
-          >
-            <PaperUpload />
-          </motion.div>
-        ) : (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="space-y-6"
-          >
-            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-6">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
-                  <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-green-800 dark:text-green-200">
-                    Paper Processed Successfully
-                  </h3>
-                  <p className="text-green-700 dark:text-green-300">
-                    Your paper has been uploaded and processed. Review and edit the metadata below if needed.
-                  </p>
-                </div>
+          <div className="bg-white dark:bg-neutral-800 border border-gray-300 dark:border-gray-600 rounded-md p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 bg-gray-100 dark:bg-gray-800 rounded-md flex items-center justify-center">
+                <FiUpload className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                  Upload Research Paper
+                </h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Choose your upload method to get started
+                </p>
               </div>
             </div>
+            <PaperUpload />
+          </div>
+        ) : (
+          <div className="bg-white dark:bg-neutral-900 border border-gray-300 dark:border-gray-600 rounded-md p-6">
+            <MetadataEditor />
+          </div>
+        )}
 
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 lg:p-8 border border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
-                Paper Metadata
-              </h3>
-              <MetadataEditor />
-            </div>
-
-            {/* Continue Button */}
-            <div className="flex justify-end">
-              <motion.button
-                onClick={handleContinueToScripts}
-                className="flex items-center px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <span>Continue to Script Generation</span>
-                <FiArrowRight className="w-5 h-5 ml-2" />
-              </motion.button>
+        {/* Processing Status */}
+        {paperId && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            transition={{ duration: 0.15 }}
+            className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md p-4"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                <span className="text-white text-xs">✓</span>
+              </div>
+              <div>
+                <p className="text-sm text-green-700 dark:text-green-300">
+                  {metadata?.title ? `"${metadata.title}"` : 'Your paper'} has been uploaded and is ready for script generation.
+                </p>
+              </div>
             </div>
           </motion.div>
         )}
-      </div>
+      </motion.div>
     </Layout>
   );
 };

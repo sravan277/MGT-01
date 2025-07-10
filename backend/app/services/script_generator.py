@@ -112,7 +112,7 @@ def clean_text(text):
 def generate_full_script_with_gemini(api_key, input_text):
     """Generate presentation script using Gemini API with improved prompts from app_1.py"""
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-2.0-flash')
     
     # Enhanced prompt based on app_1.py
     prompt = f"""
@@ -149,7 +149,7 @@ Please generate the complete presentation script with clear section headers:
 def generate_bullet_points_with_gemini(api_key, section_text):
     """Generate bullet points for a section using improved prompts."""
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-2.0-flash')
     
     prompt = f"""
 Convert this presentation script into 3-5 clear, concise bullet points for a slide.
@@ -205,6 +205,186 @@ Generate exactly 3-5 bullet points in this format:
     except Exception as e:
         print(f"Error generating bullet points: {e}")
         return ["Key information from this section"]
+
+def generate_all_bullet_points_with_gemini(api_key, sections_scripts):
+    """Generate bullet points for all sections using a single prompt."""
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel('gemini-2.0-flash')
+    
+    print(f"Generating bullet points for {len(sections_scripts)} sections using single prompt")
+    
+    # Prepare sections text for the prompt
+    sections_text = ""
+    section_names = []
+    for section_name, script_text in sections_scripts.items():
+        if script_text and script_text.strip():
+            sections_text += f"\n## {section_name}\n{script_text}\n"
+            section_names.append(section_name)
+    
+    print(f"Sections to process: {section_names}")
+    
+    prompt = f"""You are a research summarization assistant helping to create presentation-ready slide bullet points from academic paper sections.
+
+TASK: For each section provided, generate 3–5 concise, informative bullet points summarizing its key content.
+
+BULLET POINT GUIDELINES:
+• Each bullet must express one clear, complete idea
+• Use action-oriented and parallel sentence structures within each section
+• Avoid vague terms, sub-bullets, or complex phrasing
+• Limit each bullet to 1–2 lines max
+• Focus on the most important findings, methods, or conclusions
+• Use specific, concrete language over generalities
+
+INPUT: {sections_text}
+
+OUTPUT FORMAT (strictly follow this layout):
+
+[SECTION_NAME]
+• Bullet point 1  
+• Bullet point 2  
+• Bullet point 3  
+• Bullet point 4 (if applicable)  
+• Bullet point 5 (if applicable)
+
+[NEXT_SECTION_NAME]
+• Bullet point 1  
+• Bullet point 2  
+• Bullet point 3  
+• Bullet point 4 (if applicable)  
+• Bullet point 5 (if applicable)
+
+Process all sections in the input and generate bullet points accordingly."""
+
+    try:
+        print("Sending request to Gemini API for bullet point generation...")
+        
+        # Check if API key is configured
+        if not api_key:
+            raise ValueError("API key is not provided")
+            
+        response = model.generate_content(prompt)
+        
+        # Check if response is valid
+        if not response or not hasattr(response, 'text'):
+            raise ValueError("Invalid response from Gemini API")
+            
+        bullet_text = response.text.strip() if response.text else ""
+        print(f"Received response from Gemini API (length: {len(bullet_text)} chars)")
+        
+        if not bullet_text:
+            raise ValueError("Empty response from Gemini API")
+        
+        # Debug: Print first 200 chars of response
+        print(f"Response preview: {bullet_text[:200]}...")
+        
+        # Parse the response to extract bullet points for each section
+        sections_bullets = {}
+        current_section = None
+        
+        for line in bullet_text.split('\n'):
+            line = line.strip()
+            if not line:
+                continue
+                
+            # Check if line is a section header (multiple formats supported)
+            section_name = None
+            
+            # Format 1: [SECTION_NAME]
+            if line.startswith('[') and line.endswith(']'):
+                section_name = line[1:-1].strip()
+                print(f"Found bracket section header: '{section_name}'")
+            
+            # Format 2: **SECTION_NAME** (markdown bold)
+            elif line.startswith('**') and line.endswith('**') and len(line) > 4:
+                section_name = line[2:-2].strip()
+                print(f"Found markdown section header: '{section_name}'")
+            
+            # Format 3: ## SECTION_NAME (markdown heading)
+            elif line.startswith('##'):
+                section_name = line[2:].strip()
+                print(f"Found markdown heading: '{section_name}'")
+            
+            # Format 4: SECTION_NAME: (with colon)
+            elif ':' in line and len(line.split(':')[0].strip()) < 20:
+                section_name = line.split(':')[0].strip()
+                print(f"Found colon section header: '{section_name}'")
+            
+            if section_name:
+                # Normalize section name to match our standard names
+                section_matched = False
+                for standard_name in sections_scripts.keys():
+                    if (standard_name.lower() in section_name.lower() or 
+                        section_name.lower() in standard_name.lower() or
+                        standard_name.lower().replace(' ', '') == section_name.lower().replace(' ', '')):
+                        current_section = standard_name
+                        sections_bullets[current_section] = []
+                        print(f"Matched to standard section: {current_section}")
+                        section_matched = True
+                        break
+                
+                if not section_matched:
+                    print(f"Warning: Could not match section '{section_name}' to any standard section")
+                    print(f"Available sections: {list(sections_scripts.keys())}")
+                    
+            elif line and current_section and (line.startswith('•') or line.startswith('-') or line.startswith('*') or line.startswith('·')):
+                bullet = re.sub(r'^[•\-*·]\s*', '', line).strip()
+                if bullet:
+                    sections_bullets[current_section].append(bullet)
+                    print(f"Added bullet to {current_section}: {bullet[:50]}...")
+        
+        print(f"Parsed bullets for sections: {list(sections_bullets.keys())}")
+        
+        # Ensure all sections have bullets, use fallback if needed
+        for section_name in sections_scripts.keys():
+            if section_name not in sections_bullets or not sections_bullets[section_name]:
+                print(f"Using fallback for section: {section_name}")
+                # Fallback: generate bullets from section text
+                script_text = sections_scripts[section_name]
+                if script_text and script_text.strip():
+                    sentences = [s.strip() for s in script_text.split('.') if s.strip()]
+                    sections_bullets[section_name] = sentences[:4] if sentences else ["Key information from this section"]
+                else:
+                    sections_bullets[section_name] = ["Key information from this section"]
+            
+            # Limit to 5 bullets maximum
+            sections_bullets[section_name] = sections_bullets[section_name][:5]
+            print(f"Section {section_name}: {len(sections_bullets[section_name])} bullets")
+        
+        print("Successfully generated bullet points for all sections")
+        return sections_bullets
+        
+    except Exception as e:
+        print(f"Error generating all bullet points: {type(e).__name__}: {str(e)}")
+        print(f"Error occurred at line: {e.__traceback__.tb_lineno if e.__traceback__ else 'unknown'}")
+        
+        # Additional debugging for specific error types
+        if "API" in str(e).upper() or "QUOTA" in str(e).upper() or "RATE" in str(e).upper():
+            print("API-related error detected. This might be due to:")
+            print("- API key issues")
+            print("- Rate limiting")
+            print("- Service unavailability")
+        elif "RESPONSE" in str(e).upper() or "TEXT" in str(e).upper():
+            print("Response parsing error detected. The AI response might not be in expected format.")
+        
+        # Fallback: generate individual bullet points
+        print("Falling back to sentence-based bullet generation...")
+        sections_bullets = {}
+        for section_name, script_text in sections_scripts.items():
+            try:
+                if script_text and script_text.strip():
+                    # Clean the script text first
+                    clean_script = re.sub(r'\s+', ' ', script_text.strip())
+                    sentences = [s.strip() for s in clean_script.split('.') if s.strip() and len(s.strip()) > 10]
+                    sections_bullets[section_name] = sentences[:4] if sentences else ["Key information from this section"]
+                else:
+                    sections_bullets[section_name] = ["Key information from this section"]
+                print(f"Generated {len(sections_bullets[section_name])} fallback bullets for {section_name}")
+            except Exception as fallback_error:
+                print(f"Error in fallback for {section_name}: {fallback_error}")
+                sections_bullets[section_name] = ["Key information from this section"]
+                
+        print("Used fallback bullet generation for all sections")
+        return sections_bullets
 
 def split_script_into_sections(full_script):
     """Split the generated script into sections."""

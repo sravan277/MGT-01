@@ -7,8 +7,8 @@ import toast from 'react-hot-toast';
  */
 const API_CONFIG = {
   baseURL: process.env.NODE_ENV === 'production' 
-    ? process.env.REACT_APP_API_URL 
-    : 'http://localhost:8000',
+  ? process.env.REACT_APP_API_URL 
+  : 'http://localhost:8000',
   timeout: 120000,
   retryAttempts: 2,
   retryDelay: 1000,
@@ -107,7 +107,7 @@ class HttpClient {
         console.error('❌ Request Error:', error);
         return Promise.reject(error);
       }
-    );
+      );
 
     // Response interceptor - Handle auth errors
     this.client.interceptors.response.use(
@@ -116,23 +116,24 @@ class HttpClient {
         return response;
       },
       (error) => {
-        console.error('❌ Response Error:', error);
-        
         // Handle authentication errors
         if (error.response?.status === 401) {
           this.handleAuthError();
           return Promise.reject(error);
         }
 
-        // Handle other errors
+        // Handle other errors - but suppress expected 404s
         if (!this.shouldSuppressError(error)) {
+          console.error('❌ Response Error:', error);
           const message = this.extractErrorMessage(error);
           toast.error(message);
+        } else {
+          console.log(`📝 Expected 404 response for: ${error.config?.url}`);
         }
         
         return Promise.reject(error);
       }
-    );
+      );
   }
 
   handleAuthError() {
@@ -147,18 +148,32 @@ class HttpClient {
 
   extractErrorMessage(error) {
     return error.response?.data?.detail || 
-           error.response?.data?.message || 
-           error.message || 
-           'An unexpected error occurred';
+    error.response?.data?.message || 
+    error.message || 
+    'An unexpected error occurred';
   }
 
   shouldSuppressError(error) {
-    const isScriptEndpoint = error.config?.url?.includes('/scripts/') && 
-                            (error.config?.url?.includes('/sections') || 
-                             error.config?.url?.includes('/refresh'));
     const is404 = error.response?.status === 404;
     
-    return isScriptEndpoint && is404;
+    if (!is404) return false;
+    
+    const url = error.config?.url || '';
+    
+    // Suppress 404 errors for these endpoints (expected for new papers)
+    const suppressible404Endpoints = [
+      '/scripts/',
+      '/media/',
+      '/slides/'
+    ];
+    
+    const shouldSuppress = suppressible404Endpoints.some(endpoint => url.includes(endpoint));
+    
+    if (shouldSuppress) {
+      console.log(`📝 Suppressing expected 404 for: ${url}`);
+    }
+    
+    return shouldSuppress;
   }
 
   async withRetry(requestFn, retries = API_CONFIG.retryAttempts) {
@@ -166,8 +181,8 @@ class HttpClient {
       return await requestFn();
     } catch (error) {
       const shouldRetry = retries > 0 && 
-                         error.response?.status >= 500 && 
-                         error.response?.status < 600;
+      error.response?.status >= 500 && 
+      error.response?.status < 600;
       
       if (shouldRetry) {
         console.warn(`🔄 Retrying request... (${retries} attempts left)`);
@@ -246,7 +261,7 @@ class AuthService {
 }
 
 /**
- * API Service Classes (same as before but using the new HttpClient)
+ * API Service Classes
  */
 class ApiKeysService {
   constructor(httpClient) {
@@ -327,7 +342,7 @@ class ScriptsService {
   async generate(paperId) {
     return this.http.withRetry(() => 
       this.http.post(`/scripts/${paperId}/generate`)
-    );
+      );
   }
 
   async getSections(paperId) {
@@ -347,7 +362,7 @@ class ScriptsService {
     
     const response = await this.http.withRetry(() => 
       this.http.put(`/scripts/${paperId}/sections`, data)
-    );
+      );
     
     console.log('📥 Update response received:', response.data);
     return response;
@@ -370,7 +385,7 @@ class ScriptsService {
     
     return this.http.withRetry(() => 
       this.http.put(`/scripts/${paperId}/sections/${sectionName}/image${params}`)
-    );
+      );
   }
 }
 
@@ -450,7 +465,21 @@ class MediaService {
   }
 
   async getStatus(paperId) {
-    return this.http.get(`/media/${paperId}/status`);
+    try {
+      return await this.http.get(`/media/${paperId}/status`);
+    } catch (error) {
+      if (error.response?.status === 404) {
+        // Return a default structure for media that doesn't exist yet
+        return { 
+          data: { 
+            audio_files: [], 
+            video_path: null, 
+            paper_id: paperId 
+          } 
+        };
+      }
+      throw error;
+    }
   }
 
   getAudioStreamUrl(paperId, filename) {
@@ -478,9 +507,11 @@ class ApiService {
     this.slides = new SlidesService(this.httpClient);
     this.media = new MediaService(this.httpClient);
   }
+
   get interceptors() {
     return this.httpClient.client.interceptors;
   }
+
   get(url, config) {
     return this.httpClient.client.get(url, config);
   }
@@ -500,7 +531,8 @@ class ApiService {
   patch(url, data, config) {
     return this.httpClient.client.patch(url, data, config);
   }
-  // Legacy compatibility methods (deprecated - use service modules instead)
+
+  // Legacy compatibility methods
   setupApiKeys = (keys) => this.apiKeys.setup(keys);
   getApiKeysStatus = () => this.apiKeys.getStatus();
   
@@ -518,7 +550,7 @@ class ApiService {
   updateScriptsWithBullets = (paperId, data) => this.scripts.updateSections(paperId, data);
   refreshScriptsData = (paperId) => this.scripts.refreshSections(paperId);
   assignImageToSection = (paperId, sectionName, imageName) => 
-    this.scripts.assignImageToSection(paperId, sectionName, imageName);
+  this.scripts.assignImageToSection(paperId, sectionName, imageName);
   
   getAvailableImages = (paperId) => this.images.getAvailable(paperId);
   getImageUrl = (paperId, imageName) => this.images.getImageUrl(paperId, imageName);

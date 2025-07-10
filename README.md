@@ -8,6 +8,7 @@ SARAL AI is a full-stack application that automates the process of converting re
 
 - [Overview](#overview)
 - [Features](#features)
+- [Tutorial](#tutorial)
 - [System Requirements](#system-requirements)
 - [Project Structure](#project-structure)
 - [Installation](#installation)
@@ -47,6 +48,20 @@ SARAL AI transforms research papers into professional educational videos through
 - **Multilingual Support:** Generate videos in English or Hindi (with Hinglish technical terms).
 - **Professional Output:** Download videos, LaTeX sources, and PDF slides.
 - **Modern UI:** Responsive React frontend with dark mode.
+
+---
+
+## Tutorial
+
+For a comprehensive step-by-step guide on using SARAL AI, please refer to our detailed tutorial document:
+
+📖 **[Download Tutorial PDF](tutorial.pdf)**
+
+The tutorial covers:
+- Complete setup and installation process
+- Detailed workflow walkthrough with screenshots
+- Best practices for optimal results
+- Advanced configuration options
 
 ---
 
@@ -133,8 +148,8 @@ SARAL AI transforms research papers into professional educational videos through
 brew install python@3.9 poppler ffmpeg texlive
 
 # Clone the repository
-git clone https://github.com/DemocratiseResearch/saral.git
-cd saral/backend
+git clone https://github.com/DemocratiseResearch/paper2media.git
+cd paper2media/backend
 
 # Create and activate virtual environment
 python3 -m venv .venv
@@ -163,8 +178,8 @@ yarn install
 sudo apt update
 sudo apt install -y python3.9 python3.9-venv python3-pip poppler-utils ffmpeg texlive-full
 
-git clone https://github.com/DemocratiseResearch/saral.git
-cd saral/backend
+git clone https://github.com/DemocratiseResearch/paper2media.git
+cd paper2media/backend
 
 python3.9 -m venv .venv
 source .venv/bin/activate
@@ -192,8 +207,8 @@ yarn install
 3. Clone the repository and set up the environment:
 
 ```sh
-git clone https://github.com/DemocratiseResearch/saral.git
-cd saral\backend
+git clone https://github.com/DemocratiseResearch/paper2media.git
+cd paper2media\backend
 
 python -m venv .venv
 .venv\Scripts\activate
@@ -278,7 +293,7 @@ App available at [http://localhost:3000](http://localhost:3000).
 - **Connection Errors:** Ensure backend is running and accessible at the configured API URL.
 - **Image Loading Issues:** Clear browser cache and check for CORS errors.
 
-For further help, open an issue on [GitHub](https://github.com/DemocratiseResearch/saral/issues).
+For further help, open an issue on [GitHub](https://github.com/DemocratiseResearch/paper2media/issues).
 
 ---
 

@@ -1,4 +1,4 @@
-# Paper2Media: Automated Research Paper to Media Presentation Suite
+# SARAL: Automated Research Paper to Media Presentation Suite
 
 Paper2Media is a full-stack application that automates the process of converting research papers (LaTeX or arXiv) into engaging educational videos. The system leverages AI for script generation, slide creation, audio narration, and video synthesis, providing a seamless workflow from paper upload to downloadable media.
 

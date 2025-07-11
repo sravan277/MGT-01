@@ -148,8 +148,8 @@ The tutorial covers:
 brew install python@3.9 poppler ffmpeg texlive
 
 # Clone the repository
-git clone https://github.com/DemocratiseResearch/paper2media.git
-cd paper2media/backend
+git clone https://github.com/DemocratiseResearch/saral.git
+cd saral/backend
 
 # Create and activate virtual environment
 python3 -m venv .venv
@@ -178,8 +178,8 @@ yarn install
 sudo apt update
 sudo apt install -y python3.9 python3.9-venv python3-pip poppler-utils ffmpeg texlive-full
 
-git clone https://github.com/DemocratiseResearch/paper2media.git
-cd paper2media/backend
+git clone https://github.com/DemocratiseResearch/saral.git
+cd saral/backend
 
 python3.9 -m venv .venv
 source .venv/bin/activate
@@ -207,8 +207,8 @@ yarn install
 3. Clone the repository and set up the environment:
 
 ```sh
-git clone https://github.com/DemocratiseResearch/paper2media.git
-cd paper2media\backend
+git clone https://github.com/DemocratiseResearch/saral.git
+cd saral\backend
 
 python -m venv .venv
 .venv\Scripts\activate
@@ -293,7 +293,7 @@ App available at [http://localhost:3000](http://localhost:3000).
 - **Connection Errors:** Ensure backend is running and accessible at the configured API URL.
 - **Image Loading Issues:** Clear browser cache and check for CORS errors.
 
-For further help, open an issue on [GitHub](https://github.com/DemocratiseResearch/paper2media/issues).
+For further help, open an issue on [GitHub](https://github.com/DemocratiseResearch/saral/issues).
 
 ---
 

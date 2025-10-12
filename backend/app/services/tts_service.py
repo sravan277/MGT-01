@@ -676,3 +676,69 @@ def test_sarvam_sdk(api_key: str, voice: str = "meera"):
     except Exception as e:
         print(f"SDK test failed: {e}")
         return False
+
+
+def generate_audio_sarvam(
+    text: str,
+    output_path: str,
+    api_key: str,
+    language_code: str = "en-IN",
+    voice: str = "meera"
+) -> str:
+    """
+    Simple function to generate a single audio file using Sarvam TTS.
+    
+    Args:
+        text: Text to convert to speech
+        output_path: Path where to save the audio file
+        api_key: Sarvam API key
+        language_code: Language code (default: en-IN)
+        voice: Voice to use (default: meera)
+    
+    Returns:
+        Path to generated audio file
+    """
+    # Clean text
+    cleaned_text = clean_script_for_tts_and_video(text)
+    
+    if not cleaned_text:
+        raise ValueError("Text cannot be empty after cleaning")
+    
+    # Map voice names
+    if voice == "meera":
+        voice = "vidya"
+    elif voice == "arjun":
+        voice = "karun"
+    
+    # Initialize TTS client
+    try:
+        tts_client = SarvamTTS(api_key=api_key)
+        
+        if not tts_client.test_connection():
+            raise ValueError("Failed to connect to Sarvam API")
+        
+        print(f"✓ Connected to Sarvam TTS API for reel generation")
+        
+    except Exception as e:
+        raise ValueError(f"Failed to initialize TTS client: {e}")
+    
+    # Generate audio
+    try:
+        print(f"Generating audio with voice: {voice}")
+        
+        success = tts_client.synthesize_long_text(
+            text=cleaned_text,
+            output_path=output_path,
+            target_language=language_code,
+            voice=voice
+        )
+        
+        if success and os.path.exists(output_path):
+            print(f"✓ Audio generated: {output_path}")
+            return output_path
+        else:
+            raise ValueError("Audio generation failed")
+            
+    except Exception as e:
+        print(f"Error generating audio: {str(e)}")
+        raise ValueError(f"Failed to generate audio: {str(e)}")

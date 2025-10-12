@@ -273,7 +273,7 @@ const MetadataEditor = () => {
                        disabled:cursor-not-allowed"
           >
             <FiCheck className="w-4 h-4" />
-            Continue to Scripts
+            Continue to Output Selection
           </button>
         </div>
       </motion.div>

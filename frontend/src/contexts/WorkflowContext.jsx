@@ -31,10 +31,11 @@ const initialState = {
 const stepRoutes = {
   1 : '/api-setup',
   2 : '/paper-processing',
-  3 : '/script-generation',
-  4 : '/slide-creation',
-  5 : '/media-generation',
-  6 : '/results'
+  3 : '/output-selection',
+  4 : '/script-generation',
+  5 : '/slide-creation',
+  6 : '/media-generation',
+  7 : '/results'
 };
 
 /* list of URLs that belong to the linear workflow */
@@ -51,7 +52,7 @@ const workflowReducer = (state, action) => {
     return { ...state, currentStep: action.payload, manualNavigation:true, autoProgress:false };
 
   case 'PROGRESS_TO_NEXT_STEP': {
-    const next     = Math.min(state.currentStep + 1, 6);
+    const next     = Math.min(state.currentStep + 1, 7);
     const finished = [...new Set([...state.completedSteps, state.currentStep])];
     return { ...state, currentStep: next, completedSteps: finished, autoProgress:true, manualNavigation:false };
   }

@@ -12,14 +12,14 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-from app.routes import api_keys, papers, scripts, slides, media, images, auth
+from app.routes import api_keys, papers, scripts, slides, media, images, auth, reels, podcasts, posters
 from app.auth.google_auth import get_current_user, get_current_user_optional
 
 # Create temp directories
 temp_dirs = [
     "temp/arxiv_sources", "temp/images", "temp/title_slides",
     "temp/videos", "temp/audio", "temp/latex_template",
-    "temp/slides", "temp/scripts"
+    "temp/slides", "temp/scripts", "temp/reels", "temp/podcasts", "temp/posters"
 ]
 
 for dir_path in temp_dirs:
@@ -98,6 +98,9 @@ app.include_router(scripts.router, prefix="/api/scripts", tags=["Scripts"])
 app.include_router(slides.router, prefix="/api/slides", tags=["Slides"])
 app.include_router(media.router, prefix="/api/media", tags=["Media"])
 app.include_router(images.router, prefix="/api/images", tags=["Images"])
+app.include_router(reels.router, prefix="/api/reels", tags=["AI Reels"])
+app.include_router(podcasts.router, prefix="/api/podcasts", tags=["Podcasts"])
+app.include_router(posters.router, prefix="/api/posters", tags=["Posters"])
 
 # Public endpoints
 @app.get("/")

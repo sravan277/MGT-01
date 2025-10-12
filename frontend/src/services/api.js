@@ -497,6 +497,7 @@ class MediaService {
 class ApiService {
   constructor() {
     this.httpClient = new HttpClient();
+    this.API_BASE_URL = API_CONFIG.baseURL;
     
     // Initialize service modules
     this.auth = new AuthService(this.httpClient);
@@ -569,6 +570,36 @@ class ApiService {
   getMediaStatus = (paperId) => this.media.getStatus(paperId);
   getAudioStreamUrl = (paperId, filename) => this.media.getAudioStreamUrl(paperId, filename);
   getVideoStreamUrl = (paperId) => this.media.getVideoStreamUrl(paperId);
+  
+  // Reel generation methods
+  generateReel = (paperId, data) => 
+    this.httpClient.post(`/reels/${paperId}/generate`, data);
+  downloadReel = (paperId) => 
+    this.httpClient.get(`/reels/${paperId}/download`, { responseType: 'blob' });
+  getReelStatus = (paperId) => 
+    this.httpClient.get(`/reels/${paperId}/status`);
+  
+  // Podcast generation methods
+  generatePodcast = (paperId, data) => 
+    this.httpClient.post(`/podcasts/${paperId}/generate`, data);
+  streamPodcast = (paperId) => 
+    this.httpClient.get(`/podcasts/${paperId}/stream`, { responseType: 'blob' });
+  downloadPodcast = (paperId) => 
+    this.httpClient.get(`/podcasts/${paperId}/download`, { responseType: 'blob' });
+  getPodcastMetadata = (paperId) => 
+    this.httpClient.get(`/podcasts/${paperId}/metadata`);
+  getPodcastStatus = (paperId) => 
+    this.httpClient.get(`/podcasts/${paperId}/status`);
+  
+  // Poster generation methods
+  generatePoster = (paperId) => 
+    this.httpClient.post(`/posters/${paperId}/generate`);
+  viewPoster = (paperId) => 
+    this.httpClient.get(`/posters/${paperId}/view`);
+  downloadPosterFile = (paperId) => 
+    this.httpClient.get(`/posters/${paperId}/download`, { responseType: 'blob' });
+  getPosterStatus = (paperId) => 
+    this.httpClient.get(`/posters/${paperId}/status`);
 }
 
 // Create and export singleton instance

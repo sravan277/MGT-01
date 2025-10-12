@@ -62,6 +62,10 @@ def get_api_keys():
         if sarvam_key:
             api_keys_storage["sarvam_key"] = sarvam_key
 
+    # If Gemini key already in storage, use it
+    if "gemini_key" in api_keys_storage and api_keys_storage["gemini_key"]:
+        return api_keys_storage
+
     # Handle multiple Gemini keys: GEMINI_API_KEY_1, GEMINI_API_KEY_2, ...
     gemini_keys = []
     i = 1
@@ -78,27 +82,13 @@ def get_api_keys():
         if key:
             gemini_keys.append(key)
 
-    # Try each Gemini key until one works
-    for gemini_key in gemini_keys:
-        try:
-            import google.generativeai as genai
-            genai.configure(api_key=gemini_key)
-            model = genai.GenerativeModel('gemini-2.0-flash')
-            model.generate_content("Hello")
-            api_keys_storage["gemini_key"] = gemini_key
-            break
-        except Exception:
-            continue  # Try next key
-    else:
-        # No valid Gemini key found
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="No valid Gemini API key found. Please check your .env file."
-        )
+    # If we have any Gemini keys, use the first one without validation
+    if gemini_keys:
+        api_keys_storage["gemini_key"] = gemini_keys[0]
+        return api_keys_storage
 
-    if not api_keys_storage or ("gemini_key" not in api_keys_storage and not os.getenv("GEMINI_API_KEY")):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="API keys not configured. Please setup API keys first."
-        )
-    return api_keys_storage
+    # No Gemini key found at all
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="No Gemini API key found. Please check your .env file or setup API keys."
+    )

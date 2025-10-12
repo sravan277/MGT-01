@@ -13,6 +13,10 @@ import ProtectedRoute from './components/common/ProtectedRoute';
 import LandingPage from './pages/LandingPage';
 import ApiSetup from './pages/ApiSetup';
 import PaperProcessing from './pages/PaperProcessing';
+import OutputSelection from './pages/OutputSelection';
+import ReelGeneration from './pages/ReelGeneration';
+import PodcastGeneration from './pages/PodcastGeneration';
+import PosterGeneration from './pages/PosterGeneration';
 import ScriptGeneration from './pages/ScriptGeneration';
 import SlideCreation from './pages/SlideCreation';
 import MediaGeneration from './pages/MediaGeneration';
@@ -42,6 +46,26 @@ function App() {
     <Route path="/paper-processing" element={
       <ProtectedRoute>
       <PaperProcessing />
+      </ProtectedRoute>
+    } />
+    <Route path="/output-selection" element={
+      <ProtectedRoute>
+      <OutputSelection />
+      </ProtectedRoute>
+    } />
+    <Route path="/reel-generation" element={
+      <ProtectedRoute>
+      <ReelGeneration />
+      </ProtectedRoute>
+    } />
+    <Route path="/podcast-generation" element={
+      <ProtectedRoute>
+      <PodcastGeneration />
+      </ProtectedRoute>
+    } />
+    <Route path="/poster-generation" element={
+      <ProtectedRoute>
+      <PosterGeneration />
       </ProtectedRoute>
     } />
     <Route path="/script-generation" element={

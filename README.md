@@ -4,6 +4,21 @@ SARAL AI is a full-stack application that automates the process of converting re
 
 ---
 
+The different types of Features are
+1. Research paper to video generation
+2. Research paper to pdf
+3. Research paper to audio
+4. Research paper to podcast
+5. Research paper to reel
+6. Research paper to poster
+
+
+## API USED
+1. Gemini API
+2. Anuvaad Hub API
+3. Sarvam API
+4. Google Client API
+
 ## Table of Contents
 
 - [Overview](#overview)

@@ -40,12 +40,15 @@ def ensure_audio_is_generated(
     if not sarvam_api_key or sarvam_api_key.strip() == "":
         raise ValueError("Sarvam API key is required")
 
-    voice = voice_selections.get(language, "meera")
+    voice = voice_selections.get(language, "vidya")
     print(f"Using voice: {voice}")
-    if voice == "meera":
-        voice = "vidya"
-    elif voice == "arjun":
-        voice = "karun"
+    # Map old voice names to new ones (for backward compatibility)
+    voice_mapping = {
+        "meera": "vidya",
+        "arjun": "karun",
+        "arvind": "karun"
+    }
+    voice = voice_mapping.get(voice, voice)
 
     # Initialize TTS client
     try:
@@ -704,11 +707,13 @@ def generate_audio_sarvam(
     if not cleaned_text:
         raise ValueError("Text cannot be empty after cleaning")
     
-    # Map voice names
-    if voice == "meera":
-        voice = "vidya"
-    elif voice == "arjun":
-        voice = "karun"
+    # Map old voice names to new ones (for backward compatibility)
+    voice_mapping = {
+        "meera": "vidya",
+        "arjun": "karun",
+        "arvind": "karun"
+    }
+    voice = voice_mapping.get(voice, voice)
     
     # Initialize TTS client
     try:

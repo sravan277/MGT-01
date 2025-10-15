@@ -10,14 +10,19 @@ import {
   FiMic,
   FiImage,
   FiArrowRight,
-  FiCheck
+  FiCheck,
+  FiAlignLeft,
+  FiGitBranch
 } from 'react-icons/fi';
 import toast from 'react-hot-toast';
+import PaperChatbot from '../components/chatbot/PaperChatbot';
+import ChatbotButton from '../components/chatbot/ChatbotButton';
 
 const OutputSelection = () => {
   const { paperId, metadata, progressToNextStep } = useWorkflow();
   const navigate = useNavigate();
   const [selectedFormat, setSelectedFormat] = useState(null);
+  const [isChatbotOpen, setIsChatbotOpen] = useState(false);
 
   const breadcrumbs = [
     { label: 'Output Selection', href: '/output-selection' }
@@ -63,6 +68,22 @@ const OutputSelection = () => {
       icon: FiMic,
       color: 'green',
       available: true
+    },
+    {
+      id: 'summary',
+      title: 'Text Summary',
+      description: 'Generate an AI-powered summary of your research paper',
+      icon: FiAlignLeft,
+      color: 'teal',
+      available: true
+    },
+    {
+      id: 'mindmap',
+      title: 'Mind Map',
+      description: 'Create a visual mind map of key concepts and relationships',
+      icon: FiGitBranch,
+      color: 'indigo',
+      available: true
     }
   ];
 
@@ -90,6 +111,10 @@ const OutputSelection = () => {
       navigate('/podcast-generation');
     } else if (selectedFormat === 'poster') {
       navigate('/poster-generation');
+    } else if (selectedFormat === 'summary') {
+      navigate('/summary-generation');
+    } else if (selectedFormat === 'mindmap') {
+      navigate('/mindmap-generation');
     } else {
       progressToNextStep();
     }
@@ -126,6 +151,18 @@ const OutputSelection = () => {
         bg: 'bg-green-50 dark:bg-green-900/20',
         icon: 'text-green-600 dark:text-green-400',
         ring: 'ring-green-500'
+      },
+      teal: {
+        border: isSelected ? 'border-teal-500' : 'border-gray-300 dark:border-gray-600',
+        bg: 'bg-teal-50 dark:bg-teal-900/20',
+        icon: 'text-teal-600 dark:text-teal-400',
+        ring: 'ring-teal-500'
+      },
+      indigo: {
+        border: isSelected ? 'border-indigo-500' : 'border-gray-300 dark:border-gray-600',
+        bg: 'bg-indigo-50 dark:bg-indigo-900/20',
+        icon: 'text-indigo-600 dark:text-indigo-400',
+        ring: 'ring-indigo-500'
       }
     };
     return colors[color];
@@ -149,6 +186,21 @@ const OutputSelection = () => {
 
   return (
     <Layout title="" breadcrumbs={breadcrumbs}>
+      {/* Chatbot Components */}
+      {paperId && (
+        <>
+          <ChatbotButton 
+            onClick={() => setIsChatbotOpen(true)} 
+            isOpen={isChatbotOpen}
+          />
+          <PaperChatbot 
+            paperId={paperId}
+            isOpen={isChatbotOpen}
+            onClose={() => setIsChatbotOpen(false)}
+          />
+        </>
+      )}
+
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -213,7 +265,9 @@ const OutputSelection = () => {
                         format.color === 'purple' ? 'from-purple-500 to-purple-600' :
                         format.color === 'orange' ? 'from-orange-500 to-orange-600' :
                         format.color === 'pink' ? 'from-pink-500 to-pink-600' :
-                        'from-green-500 to-green-600'
+                        format.color === 'green' ? 'from-green-500 to-green-600' :
+                        format.color === 'teal' ? 'from-teal-500 to-teal-600' :
+                        'from-indigo-500 to-indigo-600'
                       } rounded-full flex items-center justify-center shadow-lg z-10`}
                     >
                       <FiCheck className="w-6 h-6 text-white font-bold" />
@@ -235,7 +289,9 @@ const OutputSelection = () => {
                       format.color === 'purple' ? 'from-purple-500 to-purple-600' :
                       format.color === 'orange' ? 'from-orange-500 to-orange-600' :
                       format.color === 'pink' ? 'from-pink-500 to-pink-600' :
-                      'from-green-500 to-green-600'
+                      format.color === 'green' ? 'from-green-500 to-green-600' :
+                      format.color === 'teal' ? 'from-teal-500 to-teal-600' :
+                      'from-indigo-500 to-indigo-600'
                     } rounded-2xl flex items-center justify-center shadow-xl transform group-hover:scale-110 transition-transform duration-300`}>
                       <Icon className="w-8 h-8 text-white" />
                     </div>

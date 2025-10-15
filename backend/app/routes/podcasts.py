@@ -4,6 +4,7 @@ Podcast Generation Routes
 
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import FileResponse, StreamingResponse
+from pydantic import BaseModel
 from typing import Optional
 import os
 import logging
@@ -24,11 +25,15 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+class PodcastRequest(BaseModel):
+    duration_minutes: int = 5
+    language: str = "en-IN"
+
+
 @router.post("/{paper_id}/generate")
 async def generate_podcast(
     paper_id: str,
-    duration_minutes: int = 5,
-    language: str = "en-IN",
+    request: PodcastRequest = PodcastRequest(),
     api_keys: dict = Depends(get_api_keys)
 ):
     """
@@ -73,11 +78,12 @@ async def generate_podcast(
                 paper_text = f.read()
         
         # Generate podcast script
-        logger.info(f"Generating podcast script for paper {paper_id}")
+        logger.info(f"Generating podcast script for paper {paper_id} in language: {request.language}")
         podcast_data = generate_podcast_script(
             paper_text=paper_text,
             gemini_key=api_keys["gemini_key"],
-            duration_minutes=duration_minutes
+            duration_minutes=request.duration_minutes,
+            language=request.language
         )
         
         # Generate podcast audio from dialogue
@@ -86,14 +92,14 @@ async def generate_podcast(
             paper_id=paper_id,
             dialogue=podcast_data["dialogue"],
             sarvam_api_key=api_keys["sarvam_key"],
-            language=language
+            language=request.language
         )
         
         # Save metadata
         metadata = {
             **podcast_data,
             "audio_path": audio_path,
-            "language": language,
+            "language": request.language,
             "paper_id": paper_id
         }
         save_podcast_metadata(paper_id, metadata)
@@ -102,7 +108,8 @@ async def generate_podcast(
             "message": "2-speaker podcast generated successfully",
             "title": podcast_data.get("title", "Research Podcast"),
             "description": podcast_data.get("description", ""),
-            "duration_minutes": duration_minutes,
+            "duration_minutes": request.duration_minutes,
+            "language": request.language,
             "dialogue_turns": len(podcast_data.get("dialogue", [])),
             "speakers": 2,
             "audio_url": f"/api/podcasts/{paper_id}/stream",

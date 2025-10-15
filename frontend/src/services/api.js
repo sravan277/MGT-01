@@ -592,14 +592,30 @@ class ApiService {
     this.httpClient.get(`/podcasts/${paperId}/status`);
   
   // Poster generation methods
-  generatePoster = (paperId) => 
-    this.httpClient.post(`/posters/${paperId}/generate`);
+  generatePoster = (paperId, options = {}) => 
+    this.httpClient.post(`/posters/${paperId}/generate`, options);
   viewPoster = (paperId) => 
     this.httpClient.get(`/posters/${paperId}/view`);
   downloadPosterFile = (paperId) => 
     this.httpClient.get(`/posters/${paperId}/download`, { responseType: 'blob' });
   getPosterStatus = (paperId) => 
     this.httpClient.get(`/posters/${paperId}/status`);
+  
+  // Summary generation methods
+  generateSummary = (paperId, data) => 
+    this.httpClient.post(`/summaries/${paperId}/generate`, data);
+  getSummaryStatus = (paperId) => 
+    this.httpClient.get(`/summaries/${paperId}/status`);
+  downloadSummary = (paperId) => 
+    this.httpClient.get(`/summaries/${paperId}/download`, { responseType: 'blob' });
+  
+  // Mind map generation methods
+  generateMindMap = (paperId) => 
+    this.httpClient.post(`/mindmaps/${paperId}/generate`);
+  getMindMapStatus = (paperId) => 
+    this.httpClient.get(`/mindmaps/${paperId}/status`);
+  downloadMindMap = (paperId) => 
+    this.httpClient.get(`/mindmaps/${paperId}/download`, { responseType: 'blob' });
 }
 
 // Create and export singleton instance

@@ -24,9 +24,15 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+from pydantic import BaseModel
+
+class PosterRequest(BaseModel):
+    language: str = "en"
+
 @router.post("/{paper_id}/generate")
 async def generate_poster(
     paper_id: str,
+    request: PosterRequest = PosterRequest(),
     api_keys: dict = Depends(get_api_keys)
 ):
     """
@@ -34,6 +40,7 @@ async def generate_poster(
     
     Args:
         paper_id: The paper ID
+        request: Poster generation request with language option
         api_keys: API keys from dependency
     
     Returns:
@@ -67,10 +74,11 @@ async def generate_poster(
                 paper_text = f.read()
         
         # Generate poster content
-        logger.info(f"Generating poster content for paper {paper_id}")
+        logger.info(f"Generating poster content for paper {paper_id} in language: {request.language}")
         content = generate_poster_content(
             paper_text=paper_text,
-            gemini_key=api_keys["gemini_key"]
+            gemini_key=api_keys["gemini_key"],
+            language=request.language
         )
         
         # Check if images need to be extracted
@@ -101,7 +109,8 @@ async def generate_poster(
             **content,
             "poster_path": str(poster_path),
             "num_images": len(images),
-            "paper_id": paper_id
+            "paper_id": paper_id,
+            "language": request.language
         }
         save_poster_metadata(paper_id, metadata)
         
@@ -109,6 +118,7 @@ async def generate_poster(
             "message": "Poster generated successfully",
             "title": content.get("title", "Research Poster"),
             "num_images": len(images),
+            "language": request.language,
             "poster_url": f"/api/posters/{paper_id}/view",
             "download_url": f"/api/posters/{paper_id}/download"
         }

@@ -17,6 +17,8 @@ import OutputSelection from './pages/OutputSelection';
 import ReelGeneration from './pages/ReelGeneration';
 import PodcastGeneration from './pages/PodcastGeneration';
 import PosterGeneration from './pages/PosterGeneration';
+import SummaryGeneration from './pages/SummaryGeneration';
+import MindMapGeneration from './pages/MindMapGeneration';
 import ScriptGeneration from './pages/ScriptGeneration';
 import SlideCreation from './pages/SlideCreation';
 import MediaGeneration from './pages/MediaGeneration';
@@ -66,6 +68,16 @@ function App() {
     <Route path="/poster-generation" element={
       <ProtectedRoute>
       <PosterGeneration />
+      </ProtectedRoute>
+    } />
+    <Route path="/summary-generation" element={
+      <ProtectedRoute>
+      <SummaryGeneration />
+      </ProtectedRoute>
+    } />
+    <Route path="/mindmap-generation" element={
+      <ProtectedRoute>
+      <MindMapGeneration />
       </ProtectedRoute>
     } />
     <Route path="/script-generation" element={

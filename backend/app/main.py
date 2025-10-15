@@ -12,14 +12,14 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-from app.routes import api_keys, papers, scripts, slides, media, images, auth, reels, podcasts, posters
+from app.routes import api_keys, papers, scripts, slides, media, images, auth, reels, podcasts, posters, chatbot, audio, summaries, mindmaps
 from app.auth.google_auth import get_current_user, get_current_user_optional
 
 # Create temp directories
 temp_dirs = [
     "temp/arxiv_sources", "temp/images", "temp/title_slides",
     "temp/videos", "temp/audio", "temp/latex_template",
-    "temp/slides", "temp/scripts", "temp/reels", "temp/podcasts", "temp/posters"
+    "temp/slides", "temp/scripts", "temp/reels", "temp/podcasts", "temp/posters", "temp/summaries", "temp/mindmaps"
 ]
 
 for dir_path in temp_dirs:
@@ -101,6 +101,10 @@ app.include_router(images.router, prefix="/api/images", tags=["Images"])
 app.include_router(reels.router, prefix="/api/reels", tags=["AI Reels"])
 app.include_router(podcasts.router, prefix="/api/podcasts", tags=["Podcasts"])
 app.include_router(posters.router, prefix="/api/posters", tags=["Posters"])
+app.include_router(chatbot.router, prefix="/api/chatbot", tags=["AI Chatbot"])
+app.include_router(audio.router, prefix="/api/audio", tags=["Audio Summary"])
+app.include_router(summaries.router, prefix="/api/summaries", tags=["Text Summaries"])
+app.include_router(mindmaps.router, prefix="/api/mindmaps", tags=["Mind Maps"])
 
 # Public endpoints
 @app.get("/")

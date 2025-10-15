@@ -15,13 +15,14 @@ import google.generativeai as genai
 logger = logging.getLogger(__name__)
 
 
-def generate_poster_content(paper_text: str, gemini_key: str) -> Dict:
+def generate_poster_content(paper_text: str, gemini_key: str, language: str = "en") -> Dict:
     """
     Generate poster content (title, key points, findings) from research paper.
     
     Args:
         paper_text: Full text of the research paper
         gemini_key: Gemini API key
+        language: Language code for content generation (default: 'en')
     
     Returns:
         Dict with poster content
@@ -29,12 +30,31 @@ def generate_poster_content(paper_text: str, gemini_key: str) -> Dict:
     genai.configure(api_key=gemini_key)
     model = genai.GenerativeModel('gemini-2.0-flash-exp')
     
+    # Language name mapping
+    language_names = {
+        'en': 'English',
+        'hi': 'Hindi',
+        'ta': 'Tamil',
+        'te': 'Telugu',
+        'bn': 'Bengali',
+        'ml': 'Malayalam',
+        'kn': 'Kannada',
+        'mr': 'Marathi',
+        'gu': 'Gujarati'
+    }
+    
+    language_name = language_names.get(language, 'English')
+    
+    language_instruction = ""
+    if language != 'en':
+        language_instruction = f"\n\nIMPORTANT: Generate ALL content in {language_name} language. The entire poster content including title, subtitle, findings, main text, methodology, and conclusion must be in {language_name}."
+    
     prompt = f"""Analyze this research paper and create content for an academic poster.
 
 Paper text:
 {paper_text[:12000]}
 
-Generate poster content that is visually appealing and informative.
+Generate poster content that is visually appealing and informative.{language_instruction}
 
 Return ONLY a JSON object with this format:
 {{
@@ -54,7 +74,8 @@ Important:
 - Keep text concise and impactful
 - Make it accessible to non-experts
 - Focus on visual appeal
-- Use clear, simple language"""
+- Use clear, simple language
+{f"- Write EVERYTHING in {language_name}" if language != 'en' else ""}"""
 
     try:
         response = model.generate_content(prompt)
@@ -147,20 +168,70 @@ def create_poster_layout(
         accent_color = (255, 87, 51)  # Orange
         bg_light = (248, 249, 250)  # Light gray
         
-        # Fonts (using default PIL fonts, fallback to basic)
-        try:
-            title_font = ImageFont.truetype("arial.ttf", 48)
-            subtitle_font = ImageFont.truetype("arial.ttf", 24)
-            heading_font = ImageFont.truetype("arialbd.ttf", 32)
-            body_font = ImageFont.truetype("arial.ttf", 20)
-            small_font = ImageFont.truetype("arial.ttf", 16)
-        except:
-            # Fallback to default font
-            title_font = ImageFont.load_default()
-            subtitle_font = ImageFont.load_default()
-            heading_font = ImageFont.load_default()
-            body_font = ImageFont.load_default()
-            small_font = ImageFont.load_default()
+        # Fonts - Try Unicode-compatible fonts for Indian languages
+        # Priority: Project fonts > System fonts
+        
+        # Check for project's downloaded fonts first
+        project_fonts_dir = Path(__file__).parent.parent.parent / "fonts"
+        
+        import platform
+        system = platform.system()
+        
+        font_options = []
+        
+        # FIRST: Try project's downloaded Noto Sans fonts (best for Indian languages)
+        if project_fonts_dir.exists():
+            project_fonts = [
+                project_fonts_dir / "NotoSans-Regular.ttf",         # Universal
+                project_fonts_dir / "NotoSansDevanagari-Regular.ttf",  # Hindi, Marathi
+                project_fonts_dir / "NotoSansTamil-Regular.ttf",    # Tamil
+                project_fonts_dir / "NotoSansTelugu-Regular.ttf",   # Telugu
+                project_fonts_dir / "NotoSansBengali-Regular.ttf",  # Bengali
+            ]
+            font_options.extend([str(f) for f in project_fonts if f.exists()])
+            logger.info(f"Found {len([f for f in project_fonts if f.exists()])} Noto Sans fonts in project")
+        
+        # SECOND: Try system fonts
+        if system == "Windows":
+            # Windows system fonts with full paths
+            font_base = r"C:\Windows\Fonts"
+            font_options.extend([
+                os.path.join(font_base, "Nirmala.ttf"),        # Nirmala UI
+                os.path.join(font_base, "NirmalaB.ttf"),       # Nirmala Bold
+                os.path.join(font_base, "seguiui.ttf"),        # Segoe UI
+                os.path.join(font_base, "segoeuib.ttf"),       # Segoe UI Bold
+                os.path.join(font_base, "msyh.ttc"),           # Microsoft YaHei
+                os.path.join(font_base, "arial.ttf"),          # Arial fallback
+            ])
+        else:
+            # Linux/Mac fonts
+            font_options.extend([
+                "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+                "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+                "DejaVuSans.ttf",
+                "arial.ttf"
+            ])
+        
+        def load_font(size, bold=False):
+            """Load font with Unicode support, trying multiple options."""
+            for font_name in font_options:
+                try:
+                    font = ImageFont.truetype(font_name, size)
+                    logger.info(f"Successfully loaded font: {font_name} (size: {size})")
+                    return font
+                except Exception as e:
+                    continue
+            
+            # Final fallback - use default
+            logger.warning(f"Could not load Unicode font, using default (size: {size})")
+            return ImageFont.load_default()
+        
+        # Load fonts with Unicode support
+        title_font = load_font(48)
+        subtitle_font = load_font(24)
+        heading_font = load_font(32, bold=True)
+        body_font = load_font(20)
+        small_font = load_font(16)
         
         current_y = 40
         margin = 40

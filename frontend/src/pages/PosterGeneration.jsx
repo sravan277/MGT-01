@@ -18,9 +18,22 @@ const PosterGeneration = () => {
   const [generating, setGenerating] = useState(false);
   const [posterGenerated, setPosterGenerated] = useState(false);
   const [posterData, setPosterData] = useState(null);
+  const [language, setLanguage] = useState('en');
 
   const breadcrumbs = [
     { label: 'AI Poster Generation', href: '/poster-generation' }
+  ];
+
+  const languages = [
+    { code: 'en', name: 'English' },
+    { code: 'hi', name: 'Hindi (हिन्दी)' },
+    { code: 'ta', name: 'Tamil (தமிழ்)' },
+    { code: 'te', name: 'Telugu (తెలుగు)' },
+    { code: 'bn', name: 'Bengali (বাংলা)' },
+    { code: 'ml', name: 'Malayalam (മലയാളം)' },
+    { code: 'kn', name: 'Kannada (ಕನ್ನಡ)' },
+    { code: 'mr', name: 'Marathi (मराठी)' },
+    { code: 'gu', name: 'Gujarati (ગુજરાતી)' }
   ];
 
   useEffect(() => {
@@ -51,15 +64,17 @@ const PosterGeneration = () => {
     setGenerating(true);
 
     try {
-      const response = await apiService.generatePoster(paperId);
+      const response = await apiService.generatePoster(paperId, { language });
       
-      toast.success('AI Poster generated successfully!');
+      const languageName = languages.find(l => l.code === language)?.name || 'selected language';
+      toast.success(`AI Poster generated successfully in ${languageName}!`);
       setPosterGenerated(true);
       setPosterData({
         title: response.data.title,
         num_images: response.data.num_images,
         poster_url: response.data.poster_url,
-        download_url: response.data.download_url
+        download_url: response.data.download_url,
+        language: response.data.language
       });
       
     } catch (error) {
@@ -140,6 +155,31 @@ const PosterGeneration = () => {
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             Generate Your Poster
           </h3>
+
+          {/* Language Selector */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Select Language
+            </label>
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              disabled={generating || posterGenerated}
+              className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg
+                         bg-white dark:bg-neutral-700 text-gray-900 dark:text-white
+                         focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent
+                         disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              {languages.map((lang) => (
+                <option key={lang.code} value={lang.code}>
+                  {lang.name}
+                </option>
+              ))}
+            </select>
+            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              The poster content will be generated in the selected language
+            </p>
+          </div>
 
           <button
             onClick={handleGeneratePoster}

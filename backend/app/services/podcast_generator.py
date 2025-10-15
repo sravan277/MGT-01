@@ -13,7 +13,7 @@ import google.generativeai as genai
 logger = logging.getLogger(__name__)
 
 
-def generate_podcast_script(paper_text: str, gemini_key: str, duration_minutes: int = 5) -> Dict:
+def generate_podcast_script(paper_text: str, gemini_key: str, duration_minutes: int = 5, language: str = "en-IN") -> Dict:
     """
     Generate a conversational 2-speaker podcast script from a research paper.
     
@@ -21,6 +21,7 @@ def generate_podcast_script(paper_text: str, gemini_key: str, duration_minutes: 
         paper_text: Full text of the research paper
         gemini_key: Gemini API key
         duration_minutes: Target duration in minutes (default 5)
+        language: Language code for the podcast (default: en-IN)
     
     Returns:
         Dict with podcast script and metadata with 2 speakers
@@ -31,29 +32,70 @@ def generate_podcast_script(paper_text: str, gemini_key: str, duration_minutes: 
     # Calculate approximate word count for target duration (150 words per minute for podcasts)
     target_words = duration_minutes * 150
     
-    prompt = f"""You are creating an engaging 2-SPEAKER podcast conversation about a research paper.
+    # Language name mapping
+    language_names = {
+        'en-IN': 'English',
+        'hi-IN': 'Hindi (हिन्दी)',
+        'ta-IN': 'Tamil (தமிழ்)',
+        'te-IN': 'Telugu (తెలుగు)',
+        'bn-IN': 'Bengali (বাংলা)',
+        'ml-IN': 'Malayalam (മലയാളം)',
+        'kn-IN': 'Kannada (ಕನ್ನಡ)',
+        'mr-IN': 'Marathi (मराठी)',
+        'gu-IN': 'Gujarati (ગુજરાતી)'
+    }
+    
+    language_name = language_names.get(language, 'English')
+    
+    language_instruction = ""
+    example_dialogue = ""
+    
+    if language != 'en-IN':
+        language_instruction = f"""
 
-Speaker 1 (Host): Female voice - Asks questions, guides the conversation, makes it accessible
-Speaker 2 (Expert): Male voice - Explains the research, provides insights, answers questions
-
-Target duration: {duration_minutes} minutes (~{target_words} words)
-
-Paper text:
-{paper_text[:12000]}
-
-Create a natural dialogue between two speakers. Make it feel like a real conversation with:
-- Natural back-and-forth exchanges
-- Questions and answers
-- Interruptions and reactions
-- Casual language and enthusiasm
-- Clear explanations
-
-Return ONLY a JSON object with this EXACT format:
-{{
-  "title": "Catchy podcast title",
-  "description": "Brief 1-2 sentence description",
-  "duration_minutes": {duration_minutes},
-  "dialogue": [
+🔴 CRITICAL LANGUAGE REQUIREMENT 🔴
+- Generate EVERY SINGLE WORD of the dialogue in {language_name}
+- The title must be in {language_name}
+- The description must be in {language_name}
+- Speaker 1's dialogue must be entirely in {language_name}
+- Speaker 2's dialogue must be entirely in {language_name}
+- DO NOT use English words - use only {language_name}
+- DO NOT translate literally - make it natural {language_name} conversation
+- This is a {language_name} podcast for {language_name} speakers"""
+        
+        # Language-specific example based on language
+        if language == 'hi-IN':
+            example_dialogue = """
+    {{
+      "speaker": 1,
+      "text": "नमस्कार! आज हम एक रोचक शोध पत्र पर चर्चा करने जा रहे हैं। क्या आप हमें बता सकते हैं कि यह शोध किस बारे में है?"
+    }},
+    {{
+      "speaker": 2,
+      "text": "बिल्कुल! यह शोध एक बहुत ही दिलचस्प समस्या का समाधान प्रस्तुत करता है..."
+    }}"""
+        elif language == 'ta-IN':
+            example_dialogue = """
+    {{
+      "speaker": 1,
+      "text": "வணக்கம்! இன்று நாம் ஒரு சுவாரஸ்யமான ஆராய்ச்சியைப் பற்றி விவாதிக்கப் போகிறோம். இந்த ஆய்வு எதைப் பற்றியது என்று சொல்ல முடியுமா?"
+    }},
+    {{
+      "speaker": 2,
+      "text": "நிச்சயமாக! இந்த ஆராய்ச்சி மிகவும் சுவாரஸ்யமான ஒரு பிரச்சினையைத் தீர்க்கிறது..."
+    }}"""
+        else:
+            example_dialogue = f"""
+    {{
+      "speaker": 1,
+      "text": "[Opening greeting in {language_name} and question about the paper]"
+    }},
+    {{
+      "speaker": 2,
+      "text": "[Expert response in {language_name} explaining the research]"
+    }}"""
+    else:
+        example_dialogue = """
     {{
       "speaker": 1,
       "text": "Welcome to our podcast! Today we're diving into some fascinating research. Can you tell us what this paper is about?"
@@ -61,23 +103,45 @@ Return ONLY a JSON object with this EXACT format:
     {{
       "speaker": 2,
       "text": "Absolutely! This research tackles a really interesting problem..."
-    }},
-    {{
-      "speaker": 1,
-      "text": "That sounds amazing! What made this research so important?"
-    }}
-    // Continue alternating speakers naturally...
+    }}"""
+    
+    prompt = f"""You are creating an engaging 2-SPEAKER podcast conversation about a research paper.
+
+Speaker 1 (Host): Female voice - Asks questions, guides the conversation, makes it accessible
+Speaker 2 (Expert): Male voice - Explains the research, provides insights, answers questions
+
+Target duration: {duration_minutes} minutes (~{target_words} words)
+🌍 OUTPUT LANGUAGE: {language_name}{language_instruction}
+
+Paper text (English - you must discuss this in {language_name}):
+{paper_text[:12000]}
+
+Create a natural dialogue between two speakers. Make it feel like a real conversation with:
+- Natural back-and-forth exchanges
+- Questions and answers
+- Reactions and enthusiasm
+- Casual conversational language
+- Clear explanations in {language_name}
+
+Return ONLY a JSON object with this EXACT format:
+{{
+  "title": "{f'[Podcast title in {language_name}]' if language != 'en-IN' else 'Catchy podcast title'}",
+  "description": "{f'[Brief description in {language_name}]' if language != 'en-IN' else 'Brief 1-2 sentence description'}",
+  "duration_minutes": {duration_minutes},
+  "dialogue": [{example_dialogue},
+    // Continue with {target_words // 20} more dialogue turns in {language_name}...
   ]
 }}
 
-Important rules:
-- Use "speaker": 1 for the host (female voice)
-- Use "speaker": 2 for the expert (male voice)
-- Make dialogue natural and engaging
-- Keep each turn conversational (2-4 sentences usually)
-- Total dialogue should be ~{target_words} words"""
+✅ CHECKLIST BEFORE RESPONDING:
+- [ ] Title is in {language_name}
+- [ ] Description is in {language_name}
+- [ ] ALL dialogue text is in {language_name}
+- [ ] Natural {language_name} conversation style
+- [ ] ~{target_words} words total"""
 
     try:
+        logger.info(f"Generating podcast in language: {language} ({language_name})")
         response = model.generate_content(prompt)
         response_text = response.text.strip()
         
@@ -89,7 +153,13 @@ Important rules:
             response_text = response_text.strip()
         
         result = json.loads(response_text)
-        logger.info(f"Generated podcast script: {result.get('title', 'Untitled')}")
+        logger.info(f"Generated podcast script in {language_name}: {result.get('title', 'Untitled')}")
+        
+        # Log first dialogue line to verify language
+        if result.get('dialogue') and len(result['dialogue']) > 0:
+            first_line = result['dialogue'][0].get('text', '')[:50]
+            logger.info(f"First dialogue preview: {first_line}...")
+        
         return result
     
     except Exception as e:
@@ -149,10 +219,10 @@ def generate_podcast_audio(
     logger.info(f"Generating 2-speaker podcast audio for paper {paper_id}")
     
     try:
-        # Voice mapping: Speaker 1 = Female (meera), Speaker 2 = Male (arjun)
+        # Voice mapping: Speaker 1 = Female (vidya), Speaker 2 = Male (karun)
         voice_map = {
-            1: "meera",  # Host - Female
-            2: "arjun"   # Expert - Male
+            1: "vidya",  # Host - Female
+            2: "karun"   # Expert - Male
         }
         
         audio_segments = []
@@ -165,7 +235,7 @@ def generate_podcast_audio(
             if not text.strip():
                 continue
             
-            voice = voice_map.get(speaker, "meera")
+            voice = voice_map.get(speaker, "vidya")
             segment_path = podcast_dir / f"segment_{i:03d}_speaker{speaker}.wav"
             
             logger.info(f"Generating segment {i+1}/{len(dialogue)} - Speaker {speaker} ({voice})")

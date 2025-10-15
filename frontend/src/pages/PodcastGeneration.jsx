@@ -22,8 +22,21 @@ const PodcastGeneration = () => {
   const [podcastGenerated, setPodcastGenerated] = useState(false);
   const [podcastData, setPodcastData] = useState(null);
   const [duration, setDuration] = useState(5);
+  const [language, setLanguage] = useState('en-IN');
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioRef, setAudioRef] = useState(null);
+
+  const languages = [
+    { code: 'en-IN', name: 'English (India)' },
+    { code: 'hi-IN', name: 'Hindi (हिन्दी)' },
+    { code: 'ta-IN', name: 'Tamil (தமிழ்)' },
+    { code: 'te-IN', name: 'Telugu (తెలుగు)' },
+    { code: 'bn-IN', name: 'Bengali (বাংলা)' },
+    { code: 'ml-IN', name: 'Malayalam (മലയാളം)' },
+    { code: 'kn-IN', name: 'Kannada (ಕನ್ನಡ)' },
+    { code: 'mr-IN', name: 'Marathi (मराठी)' },
+    { code: 'gu-IN', name: 'Gujarati (ગુજરાતી)' }
+  ];
 
   const breadcrumbs = [
     { label: 'Podcast Generation', href: '/podcast-generation' }
@@ -59,10 +72,11 @@ const PodcastGeneration = () => {
     try {
       const response = await apiService.generatePodcast(paperId, {
         duration_minutes: duration,
-        language: 'en-IN'
+        language: language
       });
       
-      toast.success('2-speaker podcast generated successfully!');
+      const selectedLangName = languages.find(l => l.code === language)?.name || language;
+      toast.success(`2-speaker podcast generated successfully in ${selectedLangName}!`);
       setPodcastGenerated(true);
       setPodcastData({
         title: response.data.title,
@@ -159,31 +173,55 @@ const PodcastGeneration = () => {
         </div>
 
         {/* Settings */}
-        <div className="bg-white dark:bg-neutral-800 border border-gray-300 dark:border-gray-600 rounded-md p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            1. Set Duration
-          </h3>
-          
+        <div className="bg-white dark:bg-neutral-800 border border-gray-300 dark:border-gray-600 rounded-md p-6 space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Choose podcast length (both speakers will alternate automatically)
-            </label>
-            <div className="flex items-center gap-4">
-              <input
-                type="range"
-                min="3"
-                max="15"
-                step="1"
-                value={duration}
-                onChange={(e) => setDuration(Number(e.target.value))}
-                className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
-              />
-              <div className="flex items-center gap-2 min-w-[120px]">
-                <FiClock className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                <span className="text-xl font-bold text-gray-900 dark:text-white">
-                  {duration}
-                </span>
-                <span className="text-gray-600 dark:text-gray-400">min</span>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              1. Select Language
+            </h3>
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              disabled={generating || podcastGenerated}
+              className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-neutral-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {languages.map((lang) => (
+                <option key={lang.code} value={lang.code}>
+                  {lang.name}
+                </option>
+              ))}
+            </select>
+            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              The podcast dialogue will be generated in the selected language
+            </p>
+          </div>
+
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              2. Set Duration
+            </h3>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Choose podcast length (both speakers will alternate automatically)
+              </label>
+              <div className="flex items-center gap-4">
+                <input
+                  type="range"
+                  min="3"
+                  max="15"
+                  step="1"
+                  value={duration}
+                  onChange={(e) => setDuration(Number(e.target.value))}
+                  disabled={generating || podcastGenerated}
+                  className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 disabled:opacity-50"
+                />
+                <div className="flex items-center gap-2 min-w-[120px]">
+                  <FiClock className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                  <span className="text-xl font-bold text-gray-900 dark:text-white">
+                    {duration}
+                  </span>
+                  <span className="text-gray-600 dark:text-gray-400">min</span>
+                </div>
               </div>
             </div>
           </div>
@@ -192,7 +230,7 @@ const PodcastGeneration = () => {
         {/* Generate Button */}
         <div className="bg-white dark:bg-neutral-800 border border-gray-300 dark:border-gray-600 rounded-md p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            2. Generate Podcast
+            3. Generate Podcast
           </h3>
 
           <button

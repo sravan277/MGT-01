@@ -1,3 +1,11 @@
+python -c "import torch; print('CUDA available:', torch.cuda.is_available()); print('CUDA device count:', torch.cuda.device_count() if torch.cuda.is_available() else 0); print('Device name:', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'N/A')"
+
+pip uninstall -y torch torchvision torchaudio; pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+
+
+
+
+
 # SARAL: Simplified And Automated Research Amplification and Learning
 
 SARAL AI is a full-stack application that automates the process of converting research papers (LaTeX or arXiv) into engaging educational videos. The system leverages AI for script generation, slide creation, audio narration, and video synthesis, providing a seamless workflow from paper upload to downloadable media.
